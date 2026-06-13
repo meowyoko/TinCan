@@ -40,7 +40,7 @@ MCP config example for Claude Code:
   "mcpServers": {
     "tin-can": {
       "command": "node",
-      "args": ["/opt/tin-can/hub/dist/mcp-bridge.js"],
+      "args": ["/home/deploy/tin-can/hub/dist/mcp-bridge.js"],
       "env": {
         "TINCAN_BRIDGE_PORT": "3101"
       }
