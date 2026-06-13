@@ -1,96 +1,69 @@
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
+import {MarkdownText} from './MarkdownText';
 import {colors, radii, typography} from '../theme/colors';
-
-export type ChatMessage = {
-  id: string;
-  role: 'user' | 'assistant';
-  text: string;
-  time: string;
-};
+import type {ChatTextMessage} from '../types/chat';
 
 type MessageBubbleProps = {
-  message: ChatMessage;
+  message: ChatTextMessage;
+  showSender: boolean;
 };
 
-export function MessageBubble({message}: MessageBubbleProps): React.JSX.Element {
+export function MessageBubble({
+  message,
+  showSender,
+}: MessageBubbleProps): React.JSX.Element {
   const isUser = message.role === 'user';
+  const senderName = isUser ? '凛' : 'Ciel';
 
   return (
-    <View style={[styles.row, isUser && styles.userRow]}>
-      <View style={[styles.avatar, isUser ? styles.userAvatar : styles.aiAvatar]}>
-        <Text style={[styles.avatarText, isUser ? styles.userAvatarText : styles.aiAvatarText]}>
-          {isUser ? '凛' : 'C'}
+    <View style={[styles.wrap, isUser && styles.userWrap]}>
+      {showSender ? (
+        <Text style={[styles.sender, isUser && styles.userSender]}>
+          {senderName}
         </Text>
-      </View>
-      <View style={[styles.content, isUser && styles.userContent]}>
-        <Text style={[styles.sender, isUser && styles.userSender]}>{isUser ? '凛' : 'Ciel'}</Text>
-        <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
-          <Text style={styles.body}>{message.text}</Text>
-          <Text style={styles.time}>{message.time}</Text>
-        </View>
+      ) : null}
+      <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
+        <MarkdownText
+          content={message.text}
+          tone="light"
+          compact
+          tailPlaceholderChars={8}
+        />
+        <Text style={styles.time}>{message.time}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
+  wrap: {
     alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 14,
+    marginBottom: 10,
   },
-  userRow: {
-    flexDirection: 'row-reverse',
-  },
-  avatar: {
-    width: 30,
-    height: 30,
-    marginTop: 20,
-    borderRadius: radii.sm,
-    borderWidth: 1.2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiAvatar: {
-    borderColor: colors.blueMain,
-  },
-  userAvatar: {
-    borderColor: colors.inkSoft,
-  },
-  avatarText: {
-    fontFamily: typography.serif,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  aiAvatarText: {
-    color: colors.blueMain,
-  },
-  userAvatarText: {
-    color: colors.inkSoft,
-  },
-  content: {
-    maxWidth: '75%',
-    minWidth: '60%',
-  },
-  userContent: {
+  userWrap: {
     alignItems: 'flex-end',
   },
   sender: {
     color: colors.inkSoft,
+    fontFamily: typography.serif,
     fontSize: 11,
-    lineHeight: 16,
-    marginBottom: 4,
+    lineHeight: 15,
+    marginBottom: 3,
     paddingHorizontal: 2,
   },
   userSender: {
     textAlign: 'right',
   },
   bubble: {
+    position: 'relative',
+    maxWidth: '86%',
+    minWidth: '38%',
     borderRadius: radii.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 5,
+    paddingBottom: 6,
   },
   aiBubble: {
     backgroundColor: colors.blueMain,
@@ -100,17 +73,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.terracotta,
     borderTopRightRadius: 3,
   },
-  body: {
-    color: colors.white,
-    fontFamily: typography.serif,
-    fontSize: 14,
-    lineHeight: 23,
-  },
   time: {
-    color: 'rgba(255,250,242,0.7)',
-    fontSize: 11,
-    lineHeight: 15,
-    textAlign: 'right',
-    marginTop: 4,
+    position: 'absolute',
+    right: 8,
+    bottom: 5,
+    color: 'rgba(255, 250, 242, 0.74)',
+    fontSize: 10,
+    lineHeight: 12,
+    fontFamily: typography.serif,
   },
 });

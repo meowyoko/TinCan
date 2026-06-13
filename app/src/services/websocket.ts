@@ -1,4 +1,6 @@
 export type TinCanStatus = 'idle' | 'thinking' | 'error' | 'offline' | 'busy';
+export type PermissionDecision = 'allow' | 'deny';
+export type PermissionOutcome = PermissionDecision | 'external';
 
 export type HubReply = {
   type: 'reply';
@@ -14,9 +16,27 @@ export type HubStatus = {
   message?: string;
 };
 
+export type HubPermissionRequest = {
+  type: 'permission_request';
+  id: string;
+  tool: string;
+  detail: string;
+  summary?: string;
+  ts: string;
+};
+
+export type HubPermissionResolved = {
+  type: 'permission_resolved';
+  id: string;
+  decision: PermissionOutcome;
+  resolved_at: string;
+};
+
 export type HubEvent =
   | HubReply
   | HubStatus
+  | HubPermissionRequest
+  | HubPermissionResolved
   | {type: 'auth_required'}
   | {type: 'auth_ok'}
   | {type: 'auth_fail'; message: string}
@@ -71,7 +91,7 @@ export class TinCanSocket {
       return null;
     }
 
-    this.ws?.send(
+    this.ws.send(
       JSON.stringify({
         type: 'message',
         id,
@@ -80,6 +100,22 @@ export class TinCanSocket {
       }),
     );
     return id;
+  }
+
+  resolvePermission(requestId: string, decision: PermissionDecision): boolean {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'permission_decision',
+        request_id: requestId,
+        decision,
+        ts: new Date().toISOString(),
+      }),
+    );
+    return true;
   }
 
   close(): void {

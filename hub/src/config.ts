@@ -6,6 +6,8 @@ export type HubConfig = {
   channelUser: string;
   sendTimeoutMs: number;
   busyTimeoutMs: number;
+  approvalPollMs: number;
+  approvalTailLines: number;
 };
 
 function intFromEnv(name: string, fallback: number): number {
@@ -23,5 +25,7 @@ export const config: HubConfig = {
   tmuxSession: process.env.TINCAN_TMUX ?? "cc",
   channelUser: process.env.TINCAN_USER ?? "rin",
   sendTimeoutMs: intFromEnv("TINCAN_SEND_TIMEOUT_MS", 3000),
-  busyTimeoutMs: intFromEnv("TINCAN_BUSY_TIMEOUT_MS", 120000)
+  busyTimeoutMs: intFromEnv("TINCAN_BUSY_TIMEOUT_MS", 120000),
+  approvalPollMs: intFromEnv("TINCAN_APPROVAL_POLL_MS", 800),
+  approvalTailLines: intFromEnv("TINCAN_APPROVAL_TAIL_LINES", 40)
 };
