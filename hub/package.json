@@ -1,0 +1,24 @@
+{
+  "name": "tin-can-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/hub.ts",
+    "dev:mcp": "tsx src/mcp-bridge.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/hub.js",
+    "start:mcp": "node dist/mcp-bridge.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "ws": "^8.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.12",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

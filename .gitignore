@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.log
+
+hub/node_modules/
+hub/dist/
+
+app/node_modules/
+app/android/.gradle/
+app/android/app/build/
