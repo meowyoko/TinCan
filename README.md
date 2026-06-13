@@ -59,7 +59,19 @@ npm run lint
 npm run android
 ```
 
-The current app skeleton uses local state for screen navigation. The WebSocket service is present in `app/src/services/websocket.ts`, but the chat UI is not wired to a live Hub URL yet.
+The current app skeleton uses local state for screen navigation. The chat UI is wired to the WebSocket service, but live Hub mode is disabled by default.
+
+To test the live phone-to-Hub path, edit `app/src/services/tincanConfig.ts` before running Metro:
+
+```ts
+export const tinCanConfig = {
+  enabled: true,
+  hubUrl: 'ws://64.188.26.146:3100',
+  pin: 'your-pin',
+};
+```
+
+Keep the PIN local while testing. Do not commit a real PIN.
 
 ## Current Verification
 

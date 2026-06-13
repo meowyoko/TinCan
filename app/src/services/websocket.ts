@@ -14,12 +14,22 @@ export type HubStatus = {
   message?: string;
 };
 
-export type HubEvent = HubReply | HubStatus | {type: 'ack'; id: string; queued: boolean};
+export type HubEvent =
+  | HubReply
+  | HubStatus
+  | {type: 'auth_required'}
+  | {type: 'auth_ok'}
+  | {type: 'auth_fail'; message: string}
+  | {type: 'ack'; id: string; queued: boolean}
+  | {type: 'error'; message: string}
+  | {type: 'pong'; ts: string};
 
 type TinCanSocketOptions = {
   url: string;
   pin?: string;
   onEvent: (event: HubEvent) => void;
+  onOpen?: () => void;
+  onClose?: () => void;
   onError: (message: string) => void;
 };
 
@@ -32,6 +42,7 @@ export class TinCanSocket {
     this.ws = new WebSocket(this.options.url);
 
     this.ws.onopen = () => {
+      this.options.onOpen?.();
       if (this.options.pin) {
         this.ws?.send(JSON.stringify({type: 'auth', pin: this.options.pin}));
       }
@@ -48,10 +59,18 @@ export class TinCanSocket {
     this.ws.onerror = () => {
       this.options.onError('WebSocket connection failed');
     };
+
+    this.ws.onclose = () => {
+      this.options.onClose?.();
+    };
   }
 
-  send(text: string): string {
+  send(text: string): string | null {
     const id = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      return null;
+    }
+
     this.ws?.send(
       JSON.stringify({
         type: 'message',
