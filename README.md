@@ -87,3 +87,7 @@ Keep the PIN local while testing. Do not commit a real PIN.
 - Chat text bubbles are the first real dynamic surface.
 - Thinking/tool/memory/attachment/sketch cards are display shells for一期.
 - Noto Serif SC font binaries still need to be added under `app/src/assets/fonts/` before release.
+
+## Contributors
+
+- **凛** - Project owner, product direction, testing, and iteration planning.
