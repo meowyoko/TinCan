@@ -22,6 +22,9 @@ export const radii = {
 };
 
 export const typography = {
-  serif: 'Noto Serif SC',
+  serif: 'NotoSerifCJKsc-Regular',
+  serifRegular: 'NotoSerifCJKsc-Regular',
+  serifMedium: 'NotoSerifCJKsc-Medium',
+  serifSemiBold: 'NotoSerifCJKsc-SemiBold',
   fallbackSerif: 'serif',
 };

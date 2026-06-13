@@ -1,8 +1,13 @@
-Place Noto Serif SC font files here before release:
+The app bundles Noto Serif CJK SC fonts for Android in:
 
-- NotoSerifSC-Regular.ttf
-- NotoSerifSC-Medium.ttf
-- NotoSerifSC-SemiBold.ttf
+`app/android/app/src/main/assets/fonts/`
 
-The current skeleton uses the final font family name so the styles are ready,
-but the actual font binaries are intentionally not committed yet.
+Files currently included:
+
+- `NotoSerifCJKsc-Regular.otf`
+- `NotoSerifCJKsc-Medium.otf`
+- `NotoSerifCJKsc-SemiBold.otf`
+
+React Native Android resolves these by file base name, so the theme uses
+`NotoSerifCJKsc-Regular`, `NotoSerifCJKsc-Medium`, and
+`NotoSerifCJKsc-SemiBold`.
