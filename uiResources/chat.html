@@ -512,6 +512,123 @@ body {
   stroke: none;
 }
 
+/* ===== Permission Card ===== */
+.permission-card {
+  margin: 4px 0 10px 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--brown-dark);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  flex-wrap: wrap;
+  width: 65%;
+}
+
+.permission-card.resolved {
+  opacity: 0.45;
+}
+
+.permission-card.expanded {
+  width: calc(100% - 36px);
+}
+
+.permission-card-header {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  flex-shrink: 0;
+}
+
+.permission-card-body {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  margin-left: 4px;
+}
+
+.permission-tool-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.permission-detail {
+  display: none;
+  width: 100%;
+  margin-top: 5px;
+  padding: 5px 8px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  font-family: "SF Mono", "Menlo", monospace;
+  line-height: 1.5;
+  max-height: 80px;
+  overflow-y: auto;
+  word-break: break-all;
+}
+
+.permission-card.expanded .permission-detail {
+  display: block;
+}
+
+.permission-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.permission-actions button {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.permission-actions .btn-allow {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.permission-actions .btn-allow:hover {
+  background: rgba(107,139,164,0.6);
+}
+
+.permission-actions .btn-deny {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.permission-actions .btn-deny:hover {
+  background: rgba(184,101,74,0.5);
+}
+
+.permission-resolved-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 /* ===== Input Bar (floating) ===== */
 .input-bar {
   display: flex;
@@ -703,6 +820,60 @@ body {
       </div>
     </div>
     <div class="sketch-label">速写：巴黎车站</div>
+  </div>
+
+  <!-- Permission Card: Pending -->
+  <div class="permission-card" onclick="this.classList.toggle('expanded')">
+    <div class="permission-card-header">
+请示
+    </div>
+    <div class="permission-card-body">
+      <span class="permission-tool-name">Bash</span>
+    </div>
+    <div class="permission-actions" onclick="event.stopPropagation()">
+      <button class="btn-allow">✓</button>
+      <button class="btn-deny">✗</button>
+    </div>
+    <div class="permission-detail">npm run build --production --verbose</div>
+  </div>
+
+  <!-- Permission Card: Pending (expanded demo) -->
+  <div class="permission-card expanded" onclick="this.classList.toggle('expanded')">
+    <div class="permission-card-header">
+请示
+    </div>
+    <div class="permission-card-body">
+      <span class="permission-tool-name">Edit</span>
+    </div>
+    <div class="permission-actions" onclick="event.stopPropagation()">
+      <button class="btn-allow">✓</button>
+      <button class="btn-deny">✗</button>
+    </div>
+    <div class="permission-detail">/home/deploy/tin-can/hub/src/hub.ts<br>old: const PORT = 3100;<br>new: const PORT = process.env.TINCAN_PORT || 3100;<br><br>old: const PIN = '1234';<br>new: const PIN = process.env.TINCAN_PIN || '1234';</div>
+  </div>
+
+  <!-- Permission Card: Resolved (allowed) -->
+  <div class="permission-card resolved" onclick="this.classList.toggle('expanded')">
+    <div class="permission-card-header">
+请示
+    </div>
+    <div class="permission-card-body">
+      <span class="permission-tool-name">Read</span>
+    </div>
+    <div class="permission-resolved-label">✓ 14:32</div>
+    <div class="permission-detail">hub/src/hub.ts</div>
+  </div>
+
+  <!-- Permission Card: Resolved (denied) -->
+  <div class="permission-card resolved" onclick="this.classList.toggle('expanded')">
+    <div class="permission-card-header">
+请示
+    </div>
+    <div class="permission-card-body">
+      <span class="permission-tool-name">Bash</span>
+    </div>
+    <div class="permission-resolved-label">✗ 14:33</div>
+    <div class="permission-detail">rm -rf /tmp/test</div>
   </div>
 
   <!-- Memory Recall -->
