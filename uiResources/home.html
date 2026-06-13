@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>每日智能电讯 · 首页</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&display=swap');
+
+:root {
+  --page-bg: #fcf6ee;
+  --ink: #2A2320;
+  --ink-soft: #5D5148;
+  --blue-main: #6B8BA4;
+  --blue-dark: #5A7A93;
+  --terracotta: #B8654A;
+  --brown-dark: #2A2320;
+  --thinking-bg: #fcf4e7;
+  --memory-bg: #fcefe1;
+  --header-bg: #f9efe3;
+  --border-thinking: #c5b29e;
+  --border-memory: #c68669;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  background: var(--page-bg);
+  color: var(--ink);
+  max-width: 393px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Top Bar ===== */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 1.5px solid rgba(36, 29, 26, 0.329);
+  background: var(--page-bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.top-bar h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--ink);
+  stroke-width: 1.8;
+  fill: none;
+}
+
+/* ===== Issue Title ===== */
+.issue-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 16px 10px;
+}
+
+.issue-title span {
+  flex: 1;
+  height: 1px;
+  background: rgba(42,35,32,0.15);
+}
+
+.issue-title p {
+  font-size: 13px;
+  color: var(--ink-soft);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+/* ===== Hero Layout ===== */
+.hero-layout {
+  display: flex;
+  gap: 12px;
+  padding: 0 16px;
+  margin-bottom: 14px;
+}
+
+.continue-panel {
+  flex: 0 0 65%;
+  background: var(--blue-main);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 155px;
+}
+
+.continue-panel .panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.continue-panel .panel-header svg {
+  width: 18px;
+  height: 18px;
+  fill: #fff;
+  stroke: none;
+}
+
+.continue-panel .panel-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.continue-panel .panel-body {
+  font-size: 13px;
+  line-height: 1.6;
+  opacity: 0.92;
+  margin-bottom: 10px;
+}
+
+.continue-panel .panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.continue-panel .panel-footer .record-time {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.continue-panel .panel-footer .continue-btn {
+  font-size: 12px;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 14px;
+  padding: 4px 14px;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ===== Today Summary ===== */
+.today-summary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.today-summary h2 {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.today-summary .sketch-illustration {
+  width: 100%;
+  height: 70px;
+  background: #D8D3C8;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.today-summary .summary-text {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.today-summary .summary-link {
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: right;
+  text-decoration: none;
+}
+
+/* ===== Ticker Row ===== */
+.ticker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  margin: 0 16px 14px;
+  border-top: 1px solid rgba(42,35,32,0.18);
+  border-bottom: 1px solid rgba(42,35,32,0.18);
+}
+
+.ticker-row .ticker-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.ticker-row .ticker-label {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ticker-row .ticker-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--terracotta);
+  flex-shrink: 0;
+}
+
+.ticker-row .ticker-text {
+  font-size: 12px;
+  color: var(--ink-soft);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticker-row .ticker-time {
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* ===== Module Index ===== */
+.module-index {
+  padding: 0 16px;
+  margin-bottom: 16px;
+}
+
+.module-index-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.module-index-header h2 {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.module-index-header span {
+  flex: 1;
+  height: 1px;
+  background: rgba(42,35,32,0.15);
+}
+
+.module-nav {
+  display: flex;
+  align-items: flex-start;
+}
+
+.module-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--ink);
+  position: relative;
+}
+
+.module-item + .module-item {
+  border-left: 1px solid rgba(42,35,32,0.12);
+}
+
+.module-item .module-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.module-item .module-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.module-item .module-badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  background: var(--terracotta);
+  border-radius: 50%;
+  font-size: 10px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.module-item .module-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.module-item .module-desc {
+  font-size: 10px;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.module-more {
+  flex: 0 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.module-more svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* ===== Feature Sketch ===== */
+.feature-sketch {
+  display: flex;
+  gap: 12px;
+  padding: 0 16px;
+  margin-bottom: 16px;
+  align-items: flex-start;
+}
+
+.feature-copy {
+  flex: 0 0 35%;
+}
+
+.feature-copy .feature-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.feature-copy .feature-title svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.feature-copy .feature-title h2 {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.feature-copy .feature-title em {
+  font-size: 11px;
+  font-style: normal;
+  background: var(--terracotta);
+  color: #fff;
+  padding: 1px 8px;
+  border-radius: 3px;
+}
+
+.feature-copy h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.feature-copy .feature-meta {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+
+.feature-copy .feature-like {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.feature-copy .feature-like svg {
+  width: 14px;
+  height: 14px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.feature-image {
+  flex: 1;
+  height: 140px;
+  background: #D8D3C8;
+  border-radius: var(--radius-sm);
+  transform: rotate(1deg);
+  box-shadow: 2px 3px 8px rgba(42,35,32,0.1);
+}
+
+/* ===== Bottom Editorial ===== */
+.bottom-editorial {
+  display: flex;
+  gap: 0;
+  margin: 0 16px 16px;
+  padding: 0;
+  border-top: 1px solid rgba(42,35,32,0.15);
+  border-bottom: 1px solid rgba(42,35,32,0.15);
+}
+
+.today-plan {
+  flex: 1;
+  padding: 12px 12px 12px 0;
+}
+
+.editorial-divider {
+  width: 1px;
+  background: rgba(42,35,32,0.12);
+  margin: 10px 0;
+}
+
+.memory-review {
+  flex: 1;
+  padding: 12px 0 12px 12px;
+}
+
+.editorial-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.editorial-title svg {
+  width: 14px;
+  height: 14px;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.plan-list {
+  list-style: none;
+}
+
+.plan-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 3px 0;
+  color: var(--ink-soft);
+}
+
+.plan-list li::before {
+  content: '○';
+  margin-right: 6px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.plan-list li span {
+  margin-left: auto;
+  padding-left: 8px;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.plan-link {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+  display: block;
+}
+
+.memory-body {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.memory-date-stamp {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--memory-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--terracotta);
+  float: right;
+  margin-left: 8px;
+}
+
+.memory-link {
+  font-size: 11px;
+  color: var(--ink-soft);
+  display: block;
+  clear: both;
+}
+
+.editorial-title .star-icon {
+  fill: #E8A838;
+  stroke: none;
+}
+
+/* ===== Bottom Nav ===== */
+.bottom-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 62px;
+  border-top: 1px solid rgba(42,35,32,0.12);
+  background: var(--page-bg);
+  position: sticky;
+  bottom: 0;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.nav-item.active {
+  color: var(--terracotta);
+}
+
+.nav-item svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.nav-item.active svg {
+  stroke: var(--terracotta);
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="top-bar">
+  <button class="icon-btn">
+    <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <h1>每日智能电讯</h1>
+  <button class="icon-btn">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+  </button>
+</header>
+
+<!-- Issue Title -->
+<section class="issue-title">
+  <span></span>
+  <p>今日首页 · 第六期</p>
+  <span></span>
+</section>
+
+<!-- Hero: Continue + Summary -->
+<section class="hero-layout">
+  <article class="continue-panel">
+    <div class="panel-header">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.3)"/><circle cx="8" cy="10" r="1.2" fill="#fff"/><circle cx="12" cy="10" r="1.2" fill="#fff"/><circle cx="16" cy="10" r="1.2" fill="#fff"/></svg>
+      <h2>继续对话</h2>
+    </div>
+    <p class="panel-body">上次我们聊到欧洲铁路客运竞争加剧，你想了解相关政策的最新动向。</p>
+    <div class="panel-footer">
+      <span class="record-time">上次记录 08:01</span>
+      <button class="continue-btn">继续对话 ›</button>
+    </div>
+  </article>
+
+  <aside class="today-summary">
+    <h2>今日摘要</h2>
+    <div class="sketch-illustration"></div>
+    <p class="summary-text">欧洲交通政策更新，多国推出铁路振兴计划。</p>
+    <a class="summary-link" href="#">查看摘要 ›</a>
+  </aside>
+</section>
+
+<!-- Ticker -->
+<section class="ticker-row">
+  <div class="ticker-icon">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+  </div>
+  <span class="ticker-label">电讯速报</span>
+  <span class="ticker-dot"></span>
+  <span class="ticker-text">欧盟通过《铁路互联互通条例》修订案</span>
+  <span class="ticker-time">10:24 ›</span>
+</section>
+
+<!-- Module Index -->
+<section class="module-index">
+  <div class="module-index-header">
+    <h2>模块入口</h2>
+    <span></span>
+  </div>
+  <nav class="module-nav">
+    <a class="module-item" href="#">
+      <div class="module-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <span class="module-badge">3</span>
+      </div>
+      <span class="module-name">聊天</span>
+      <span class="module-desc">与AI助手对话</span>
+    </a>
+    <a class="module-item" href="#">
+      <div class="module-icon">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z" rx="1"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="4" y1="9" x2="20" y2="9"/></svg>
+        <span class="module-badge">1</span>
+      </div>
+      <span class="module-name">日记</span>
+      <span class="module-desc">记录每日思考</span>
+    </a>
+    <a class="module-item" href="#">
+      <div class="module-icon">
+        <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </div>
+      <span class="module-name">灵感</span>
+      <span class="module-desc">灵感与素材收藏</span>
+    </a>
+    <a class="module-item" href="#">
+      <div class="module-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+      </div>
+      <span class="module-name">计划</span>
+      <span class="module-desc">安排与追踪任务</span>
+    </a>
+    <a class="module-item" href="#">
+      <div class="module-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="4" rx="1"/><path d="M4 7v11a2 2 0 002 2h12a2 2 0 002-2V7"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+      </div>
+      <span class="module-name">档案</span>
+      <span class="module-desc">查看历史资料</span>
+    </a>
+    <div class="module-more">
+      <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </nav>
+</section>
+
+<!-- Feature Sketch -->
+<section class="feature-sketch">
+  <div class="feature-copy">
+    <div class="feature-title">
+      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+      <h2>速写</h2>
+      <em>精选</em>
+    </div>
+    <h3>巴黎车站速写</h3>
+    <p class="feature-meta">1898 年 10 月 · 天气晴</p>
+    <div class="feature-like">
+      <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      <span>23</span>
+    </div>
+  </div>
+  <div class="feature-image"></div>
+</section>
+
+<!-- Bottom Editorial -->
+<section class="bottom-editorial">
+  <article class="today-plan">
+    <div class="editorial-title">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+      今日计划
+    </div>
+    <ul class="plan-list">
+      <li>整理欧洲铁路政策资料<span>09:30</span></li>
+      <li>撰写快车扩展方案初稿<span>14:00</span></li>
+      <li>收集各国客运数据<span>昨天</span></li>
+    </ul>
+    <a class="plan-link" href="#">查看全部计划 ›</a>
+  </article>
+
+  <div class="editorial-divider"></div>
+
+  <article class="memory-review">
+    <div class="editorial-title">
+      <svg class="star-icon" viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+      记忆回顾
+    </div>
+    <div class="memory-date-stamp">10/12</div>
+    <p class="memory-body">您曾在 10 月 12 日提到，对东方快车扩展计划感兴趣。</p>
+    <a class="memory-link" href="#">查看详情 ›</a>
+  </article>
+</section>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <a class="nav-item active" href="#">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+    <span>首页</span>
+  </a>
+  <a class="nav-item" href="#">
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    <span>聊天</span>
+  </a>
+  <a class="nav-item" href="#">
+    <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z" rx="1"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="4" y1="9" x2="20" y2="9"/></svg>
+    <span>日记</span>
+  </a>
+  <a class="nav-item" href="#">
+    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="4" rx="1"/><path d="M4 7v11a2 2 0 002 2h12a2 2 0 002-2V7"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+    <span>档案</span>
+  </a>
+  <a class="nav-item" href="#">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+    <span>我的</span>
+  </a>
+</nav>
+
+</body>
+</html>

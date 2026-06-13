@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>每日智能电讯 · 聊天</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&display=swap');
+
+:root {
+  --page-bg: #fcf6ee;
+  --ink: #2A2320;
+  --ink-soft: #5D5148;
+  --blue-main: #6B8BA4;
+  --blue-dark: #5A7A93;
+  --terracotta: #B8654A;
+  --brown-dark: #2A2320;
+  --thinking-bg: #fcf4e7;
+  --memory-bg: #fcefe1;
+  --header-bg: #f9efe3;
+  --border-thinking: #c5b29e;
+  --border-memory: #c68669;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  background: var(--page-bg);
+  color: var(--ink);
+  max-width: 393px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Top Bar ===== */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 1.5px solid rgba(36, 29, 26, 0.329);
+  background: var(--page-bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.top-bar h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--ink);
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--ink);
+  stroke-width: 1.8;
+  fill: none;
+}
+
+/* ===== Chat Header (sticky below top bar) ===== */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1.5px solid rgba(36, 29, 26, 0.329);
+  background: var(--header-bg);
+  position: sticky;
+  top: 52px;
+  z-index: 9;
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--terracotta);
+  border-radius: 50%;
+}
+
+.chat-header-left span {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.chat-header-right {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ===== Date Divider ===== */
+.date-divider {
+  text-align: center;
+  padding: 16px 0 8px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  letter-spacing: 1px;
+}
+
+.date-divider::before,
+.date-divider::after {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 1px;
+  background: rgba(42,35,32,0.15);
+  vertical-align: middle;
+  margin: 0 10px;
+}
+
+/* ===== Messages Area ===== */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px 80px;
+}
+
+/* ===== Message Bubbles ===== */
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.message-row.ai {
+  flex-direction: row;
+}
+
+.message-row.user {
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.avatar.ai-avatar {
+  border: 1.2px solid var(--blue-main);
+}
+
+.avatar.ai-avatar svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--blue-main);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.avatar.user-avatar {
+  border: 1.2px solid var(--ink-soft);
+}
+
+.avatar.user-avatar svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.message-content {
+  max-width: 75%;
+  min-width: 60%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sender-name {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+
+.message-row.user .sender-name {
+  text-align: right;
+}
+
+.bubble {
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.65;
+  border-radius: var(--radius-md);
+  position: relative;
+}
+
+.bubble .time {
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
+  margin-top: 4px;
+  display: block;
+  text-align: right;
+}
+
+.bubble.ai-bubble {
+  background: var(--blue-main);
+  color: #fff;
+  border-top-left-radius: 3px;
+}
+
+.bubble.user-bubble {
+  background: var(--terracotta);
+  color: #fff;
+  border-top-right-radius: 3px;
+}
+
+.bubble .check {
+  font-size: 11px;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
+/* ===== Thinking Indicator ===== */
+.thinking-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-left: 36px;
+}
+
+.thinking-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--thinking-bg);
+  border: 1.5px dashed var(--border-thinking);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--ink-soft);
+  min-width: 60%;
+}
+
+.thinking-bubble .thinking-icon {
+  width: 16px;
+  height: 16px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+  fill: none;
+  flex-shrink: 0;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+.thinking-dots span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--terracotta);
+  opacity: 0.6;
+}
+
+/* ===== Action Cards (Archive Search) ===== */
+.action-card {
+  margin: 4px 0 10px 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--brown-dark);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 13px;
+}
+
+.action-card svg {
+  width: 15px;
+  height: 15px;
+  stroke: #fff;
+  stroke-width: 1.5;
+  fill: none;
+  flex-shrink: 0;
+}
+
+/* ===== Voice Message ===== */
+.voice-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--terracotta);
+  border-radius: var(--radius-md);
+  color: #fff;
+}
+
+.voice-message .play-btn {
+  width: 30px;
+  height: 30px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.voice-message .play-btn svg {
+  width: 12px;
+  height: 12px;
+  fill: #fff;
+  stroke: none;
+  margin-left: 2px;
+}
+
+.voice-info {
+  flex: 1;
+}
+
+.voice-info .voice-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 3px;
+}
+
+.voice-waveform {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+}
+
+.voice-waveform span {
+  width: 2px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 2px;
+}
+
+.voice-time {
+  font-size: 11px;
+  color: rgba(255,255,255,0.75);
+  flex-shrink: 0;
+}
+
+.voice-message-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  justify-content: flex-end;
+}
+
+.voice-message-row .voice-message {
+  max-width: 65%;
+}
+
+.voice-row-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1.2px solid var(--ink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.voice-row-avatar svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* ===== Attachment ===== */
+.attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--thinking-bg);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-sm);
+  margin: 4px 0 10px 36px;
+  transform: rotate(-2deg);
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.attachment svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+  fill: none;
+  flex-shrink: 0;
+}
+
+/* ===== Sketch Card ===== */
+.sketch-card {
+  margin: 8px 0 14px 36px;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--thinking-bg);
+  max-width: 55%;
+  transform: rotate(-2deg);
+  box-shadow: 2px 3px 8px rgba(42,35,32,0.12);
+}
+
+.sketch-card-icon {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sketch-card-icon svg {
+  width: 13px;
+  height: 13px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.sketch-card .sketch-img {
+  width: 100%;
+  height: 100px;
+  background: #D8D3C8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.sketch-card .sketch-label {
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: center;
+  border-top: 1px solid rgba(42,35,32,0.15);
+}
+
+/* ===== Memory Card ===== */
+.memory-card {
+  margin: 4px 0 10px 36px;
+  padding: 9px 13px;
+  background: var(--memory-bg);
+  border: 1.5px dashed var(--border-memory);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 70%;
+}
+
+.memory-card .memory-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--terracotta);
+}
+
+.memory-card .memory-header svg {
+  width: 13px;
+  height: 13px;
+  fill: #E8A838;
+  stroke: none;
+}
+
+/* ===== Input Bar (floating) ===== */
+.input-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 393px;
+  z-index: 10;
+}
+
+.input-bar .add-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(42,35,32,0.25);
+  background: var(--page-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.input-bar .add-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke: var(--ink-soft);
+  stroke-width: 1.8;
+  fill: none;
+}
+
+.input-field {
+  flex: 1;
+  height: 38px;
+  border: 1.5px solid rgba(42,35,32,0.2);
+  border-radius: 19px;
+  padding: 0 16px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--page-bg);
+  outline: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.input-field::placeholder {
+  color: var(--ink-soft);
+  opacity: 0.6;
+}
+
+.send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--terracotta);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+
+.send-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: #fff;
+  stroke: none;
+  margin-left: 2px;
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="top-bar">
+  <button class="icon-btn">
+    <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <h1>每日智能电讯</h1>
+  <button class="icon-btn">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+  </button>
+</header>
+
+<!-- Chat Header (sticky) -->
+<div class="chat-header">
+  <div class="chat-header-left">
+    <span class="status-dot"></span>
+    <span>正在对话：AI 助手</span>
+  </div>
+  <div class="chat-header-right">第一卷</div>
+</div>
+
+<!-- Messages -->
+<div class="messages">
+
+  <!-- Date Divider -->
+  <div class="date-divider">1897年10月24日</div>
+
+  <!-- AI Message 1 -->
+  <div class="message-row ai">
+    <div class="avatar ai-avatar">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="10" r="1.5"/><circle cx="15" cy="10" r="1.5"/><path d="M9 15c1.5 1.5 4.5 1.5 6 0"/></svg>
+    </div>
+    <div class="message-content">
+      <span class="sender-name">AI 助手</span>
+      <div class="bubble ai-bubble">
+        早上好。我已整理昨日电报的通讯记录。您需要我为您总结主要的新闻头条吗？
+        <span class="time">08:00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Message 1 -->
+  <div class="message-row user">
+    <div class="avatar user-avatar">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+    </div>
+    <div class="message-content">
+      <span class="sender-name">您</span>
+      <div class="bubble user-bubble">
+        是的，请继续。重点关注欧洲战局以及关于新机车时刻表的任何进展。
+        <span class="time">08:01 <span class="check">✓</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Thinking Indicator -->
+  <div class="thinking-row">
+    <div class="thinking-bubble">
+      <svg class="thinking-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+      <span>思考中……<br>正在分析地区电讯异常……</span>
+      <div class="thinking-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Card: Archive Search -->
+  <div class="action-card">
+    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="4" rx="1"/><path d="M4 7v11a2 2 0 002 2h12a2 2 0 002-2V7"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+    <span>检索档案：巴黎条约 · 1898</span>
+  </div>
+
+  <!-- Voice Message -->
+  <div class="voice-message-row">
+    <div class="voice-message">
+      <div class="play-btn">
+        <svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>
+      </div>
+      <div class="voice-info">
+        <div class="voice-label">语音记录</div>
+        <div class="voice-waveform">
+          <span style="height:4px"></span><span style="height:8px"></span><span style="height:12px"></span>
+          <span style="height:6px"></span><span style="height:14px"></span><span style="height:10px"></span>
+          <span style="height:4px"></span><span style="height:8px"></span><span style="height:14px"></span>
+          <span style="height:6px"></span><span style="height:10px"></span><span style="height:4px"></span>
+          <span style="height:8px"></span><span style="height:12px"></span><span style="height:6px"></span>
+          <span style="height:14px"></span><span style="height:8px"></span><span style="height:4px"></span>
+          <span style="height:10px"></span><span style="height:6px"></span>
+        </div>
+      </div>
+      <span class="voice-time">00:12</span>
+    </div>
+    <div class="voice-row-avatar">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+    </div>
+  </div>
+
+  <!-- Attachment -->
+  <div class="attachment">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <span>附件：欧洲地图_v2.pdf</span>
+  </div>
+
+  <!-- Sketch Card -->
+  <div class="sketch-card">
+    <div class="sketch-img" style="position:relative">
+      <div class="sketch-card-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </div>
+    </div>
+    <div class="sketch-label">速写：巴黎车站</div>
+  </div>
+
+  <!-- Memory Recall -->
+  <div class="memory-card">
+    <div class="memory-header">
+      <svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+      记忆召回：
+    </div>
+    您曾在 10 月 12 日提到，<br>对东方快车扩展计划感兴趣。
+  </div>
+
+  <!-- AI Message 2 -->
+  <div class="message-row ai">
+    <div class="avatar ai-avatar">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="10" r="1.5"/><circle cx="15" cy="10" r="1.5"/><path d="M9 15c1.5 1.5 4.5 1.5 6 0"/></svg>
+    </div>
+    <div class="message-content">
+      <span class="sender-name">AI 助手</span>
+      <div class="bubble ai-bubble">
+        早上好。我已整理昨日电报的通讯记录。您需要我为您总结主要的新闻头条吗？
+        <span class="time">08:03</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Input Bar (floating) -->
+<div class="input-bar">
+  <button class="add-btn">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <input class="input-field" type="text" placeholder="在此草拟您的质询…">
+  <button class="send-btn">
+    <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+  </button>
+</div>
+
+</body>
+</html>
