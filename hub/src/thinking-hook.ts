@@ -1,5 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { WebSocket } from "ws";
+
+const STATE_PATH = join(homedir(), ".claude", "tincan-thinking-state.json");
 
 type CliArgs = {
   chatId?: string;
@@ -10,38 +15,54 @@ type CliArgs = {
   transcript?: string;
 };
 
-type TranscriptExtraction = {
-  chatId?: string;
-  replyTo?: string;
-  text?: string;
+type ThinkingPair = {
+  chatId: string;
+  replyTo: string;
+  text: string;
+};
+
+type StateFile = {
+  transcriptPath: string;
+  lastLine: number;
+  pendingThinking?: string[];
+  pendingReply?: { chatId?: string; toolUseId?: string; thinkingText: string };
 };
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const extracted = args.transcript
-    ? await extractFromTranscript(args.transcript)
-    : {};
-
-  const chatId = args.chatId ?? extracted.chatId ?? "main";
-  const replyTo = args.replyTo ?? extracted.replyTo;
-  const text = args.text ?? extracted.text;
   const hubUrl = args.hubUrl ?? `ws://127.0.0.1:${process.env.TINCAN_PORT ?? "3100"}`;
   const pin = args.pin ?? process.env.TINCAN_PIN ?? "";
+  const chatId = args.chatId ?? "main";
 
-  if (!replyTo || !text) {
-    if (args.transcript && !args.replyTo && !args.text) {
-      return;
-    }
-    throw new Error("reply_to and thinking text are required. Pass them explicitly or provide a transcript.");
+  if (args.text && args.replyTo) {
+    await sendThinking({ url: hubUrl, pin, chatId, replyTo: args.replyTo, text: args.text });
+    return;
   }
 
-  await sendThinking({
-    url: hubUrl,
-    pin,
-    chatId,
-    replyTo,
-    text,
-  });
+  if (!args.transcript) {
+    return;
+  }
+
+  const state = await loadState(args.transcript);
+  const raw = await readFile(args.transcript, "utf8");
+  const allLines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  if (state.lastLine >= allLines.length) {
+    return;
+  }
+
+  const newLines = allLines.slice(state.lastLine);
+  const carryOver = {
+    thinkingChunks: state.pendingThinking ?? [],
+    pendingReply: state.pendingReply ?? undefined,
+  };
+  const { pairs, remainingThinking, remainingReply } = extractPairs(newLines, chatId, carryOver);
+
+  for (const pair of pairs) {
+    await sendThinking({ url: hubUrl, pin, ...pair });
+  }
+
+  await saveState(args.transcript, allLines.length, remainingThinking, remainingReply);
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -88,140 +109,194 @@ function parseArgs(argv: string[]): CliArgs {
   return args;
 }
 
-async function extractFromTranscript(transcriptPath: string): Promise<TranscriptExtraction> {
-  const raw = await readFile(transcriptPath, "utf8");
-  const parsedLines = raw
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(Boolean);
-  const currentTurn = collectLatestTurn(parsedLines);
-
-  const state: TranscriptExtraction & { lastSentId?: string } = {};
-
-  for (const parsed of currentTurn) {
-    visitNode(parsed, state);
+async function loadState(transcriptPath: string): Promise<StateFile> {
+  try {
+    if (!existsSync(STATE_PATH)) {
+      return { transcriptPath, lastLine: 0 };
+    }
+    const raw = await readFile(STATE_PATH, "utf8");
+    const state = JSON.parse(raw) as StateFile;
+    if (state.transcriptPath !== transcriptPath) {
+      return { transcriptPath, lastLine: 0 };
+    }
+    return state;
+  } catch {
+    return { transcriptPath, lastLine: 0 };
   }
-
-  return {
-    chatId: state.chatId,
-    replyTo: state.replyTo ?? state.lastSentId,
-    text: state.text,
-  };
 }
 
-function collectLatestTurn(lines: string[]): unknown[] {
-  const turn: unknown[] = [];
-  let seenTurnContent = false;
+async function saveState(
+  transcriptPath: string,
+  lastLine: number,
+  pendingThinking?: string[],
+  pendingReply?: PendingReply,
+): Promise<void> {
+  const state: StateFile = { transcriptPath, lastLine };
+  if (pendingThinking && pendingThinking.length > 0) {
+    state.pendingThinking = pendingThinking;
+  }
+  if (pendingReply) {
+    state.pendingReply = pendingReply;
+  }
+  await writeFile(STATE_PATH, JSON.stringify(state), "utf8");
+}
 
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index];
+type PendingReply = { chatId?: string; toolUseId?: string; thinkingText: string };
+
+type CarryOver = {
+  thinkingChunks: string[];
+  pendingReply?: PendingReply;
+};
+
+type ExtractionResult = {
+  pairs: ThinkingPair[];
+  remainingThinking: string[];
+  remainingReply?: PendingReply;
+};
+
+function extractPairs(lines: string[], defaultChatId: string, carryOver?: CarryOver): ExtractionResult {
+  const pairs: ThinkingPair[] = [];
+  const thinkingChunks: string[] = carryOver?.thinkingChunks ? [...carryOver.thinkingChunks] : [];
+  let pending: PendingReply | undefined = carryOver?.pendingReply;
+
+  for (const line of lines) {
     let parsed: unknown;
-
     try {
       parsed = JSON.parse(line) as unknown;
     } catch {
       continue;
     }
 
-    if (seenTurnContent && isUserTurnBoundary(parsed)) {
-      break;
+    if (!parsed || typeof parsed !== "object") {
+      continue;
     }
 
-    if (containsTurnContent(parsed)) {
-      seenTurnContent = true;
+    const record = parsed as Record<string, unknown>;
+
+    const thinking = extractThinkingText(record);
+    if (thinking) {
+      thinkingChunks.push(thinking);
     }
 
-    turn.push(parsed);
+    const replyInfo = findReplyInRecord(record);
+    if (replyInfo && thinkingChunks.length > 0) {
+      if (replyInfo.replyTo) {
+        pairs.push({
+          chatId: replyInfo.chatId ?? defaultChatId,
+          replyTo: replyInfo.replyTo,
+          text: thinkingChunks.join("\n\n"),
+        });
+        thinkingChunks.length = 0;
+        pending = undefined;
+      } else {
+        pending = {
+          chatId: replyInfo.chatId,
+          toolUseId: replyInfo.toolUseId,
+          thinkingText: thinkingChunks.join("\n\n"),
+        };
+        thinkingChunks.length = 0;
+      }
+    }
+
+    if (pending) {
+      const sentId = extractSentId(record, pending.toolUseId);
+      if (sentId) {
+        pairs.push({
+          chatId: pending.chatId ?? defaultChatId,
+          replyTo: sentId,
+          text: pending.thinkingText,
+        });
+        pending = undefined;
+      }
+    }
   }
 
-  return turn.reverse();
+  return {
+    pairs,
+    remainingThinking: [...thinkingChunks],
+    remainingReply: pending,
+  };
 }
 
-function isUserTurnBoundary(node: unknown): boolean {
-  if (!node || typeof node !== "object") {
-    return false;
-  }
+type ReplyInfo = { chatId?: string; replyTo?: string; toolUseId?: string };
 
-  const record = node as Record<string, unknown>;
-  if (record.type !== "user") {
-    return false;
-  }
-
-  const message = record.message;
-  if (!message || typeof message !== "object" || (message as Record<string, unknown>).role !== "user") {
-    return false;
-  }
-
-  const content = (message as Record<string, unknown>).content;
-  if (!Array.isArray(content)) {
-    return false;
-  }
-
-  const hasOnlyToolResults = content.every(
-    item => item && typeof item === "object" && (item as Record<string, unknown>).type === "tool_result",
-  );
-  return !hasOnlyToolResults;
-}
-
-function containsTurnContent(node: unknown): boolean {
-  if (!node || typeof node !== "object") {
-    return false;
-  }
-
-  const record = node as Record<string, unknown>;
-  if (record.type === "assistant") {
-    return true;
-  }
-
-  if (record.type === "thinking") {
-    return true;
-  }
-
-  return isTinCanReplyCall(record);
-}
-
-function visitNode(node: unknown, state: TranscriptExtraction & { lastSentId?: string }): void {
-  if (typeof node === "string") {
-    const sentMatch = node.match(/sent \(id:\s*([^)]+)\)/i);
-    if (sentMatch) {
-      state.lastSentId = sentMatch[1];
+function findReplyInRecord(record: Record<string, unknown>): ReplyInfo | undefined {
+  if (record.type === "assistant" && record.message && typeof record.message === "object") {
+    const msg = record.message as Record<string, unknown>;
+    if (Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (!block || typeof block !== "object") continue;
+        const b = block as Record<string, unknown>;
+        if (b.type === "tool_use" && isTinCanReplyName(b.name)) {
+          const input = b.input as Record<string, unknown> | undefined;
+          return {
+            chatId: typeof input?.chat_id === "string" ? input.chat_id : undefined,
+            replyTo: typeof input?.reply_to === "string" ? input.reply_to : undefined,
+            toolUseId: typeof b.id === "string" ? b.id : undefined,
+          };
+        }
+      }
     }
-    return;
-  }
-
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      visitNode(item, state);
-    }
-    return;
-  }
-
-  if (!node || typeof node !== "object") {
-    return;
-  }
-
-  const record = node as Record<string, unknown>;
-  const candidateThinking = extractThinkingText(record);
-  if (candidateThinking) {
-    state.text = candidateThinking;
   }
 
   if (isTinCanReplyCall(record)) {
     const args = extractArgumentsRecord(record);
-    if (typeof args?.chat_id === "string") {
-      state.chatId = args.chat_id;
-    }
-    if (typeof args?.reply_to === "string") {
-      state.replyTo = args.reply_to;
-    }
+    return {
+      chatId: typeof args?.chat_id === "string" ? args.chat_id : undefined,
+      replyTo: typeof args?.reply_to === "string" ? args.reply_to : undefined,
+      toolUseId: typeof record.id === "string" ? record.id : undefined,
+    };
   }
 
-  for (const value of Object.values(record)) {
-    visitNode(value, state);
+  return undefined;
+}
+
+function extractSentId(record: Record<string, unknown>, toolUseId?: string): string | undefined {
+  if (record.type !== "user") return undefined;
+  const msg = record.message;
+  if (!msg || typeof msg !== "object") return undefined;
+  const content = (msg as Record<string, unknown>).content;
+  if (!Array.isArray(content)) return undefined;
+
+  for (const item of content) {
+    if (!item || typeof item !== "object") continue;
+    const block = item as Record<string, unknown>;
+    if (block.type !== "tool_result") continue;
+    if (toolUseId && block.tool_use_id !== toolUseId) continue;
+
+    const text = Array.isArray(block.content)
+      ? block.content.map((c: any) => typeof c === "string" ? c : c?.text ?? "").join("")
+      : typeof block.content === "string" ? block.content : "";
+
+    const match = text.match(/sent \(id:\s*([^)]+)\)/i);
+    if (match) return match[1];
   }
+
+  return undefined;
 }
 
 function extractThinkingText(record: Record<string, unknown>): string | undefined {
+  if (record.type === "assistant" && record.message && typeof record.message === "object") {
+    const msg = record.message as Record<string, unknown>;
+    if (Array.isArray(msg.content)) {
+      const chunks: string[] = [];
+      for (const block of msg.content) {
+        if (!block || typeof block !== "object") continue;
+        const b = block as Record<string, unknown>;
+        if (b.type !== "thinking") continue;
+
+        if (typeof b.thinking === "string" && b.thinking.trim()) {
+          chunks.push(b.thinking.trim());
+        } else if (typeof b.text === "string" && (b.text as string).trim()) {
+          chunks.push((b.text as string).trim());
+        }
+      }
+      if (chunks.length > 0) {
+        return chunks.join("\n");
+      }
+    }
+  }
+
   if (record.type === "thinking" && typeof record.thinking === "string" && (record.thinking as string).trim()) {
     return (record.thinking as string).trim();
   }
@@ -230,78 +305,18 @@ function extractThinkingText(record: Record<string, unknown>): string | undefine
     return record.text.trim();
   }
 
-  if (record.type === "thinking" && Array.isArray(record.content)) {
-    const joined = record.content
-      .map(item => {
-        if (typeof item === "string") {
-          return item;
-        }
-        if (item && typeof item === "object" && typeof (item as Record<string, unknown>).text === "string") {
-          return String((item as Record<string, unknown>).text);
-        }
-        return "";
-      })
-      .join("\n")
-      .trim();
-    if (joined) {
-      return joined;
-    }
-  }
-
-  if (Array.isArray(record.content)) {
-    const thinkingBlocks = record.content
-      .map(item => {
-        if (!item || typeof item !== "object") {
-          return "";
-        }
-
-        const block = item as Record<string, unknown>;
-        if (block.type !== "thinking") {
-          return "";
-        }
-
-        if (typeof block.thinking === "string") {
-          return block.thinking as string;
-        }
-
-        if (typeof block.text === "string") {
-          return block.text;
-        }
-
-        if (Array.isArray(block.content)) {
-          return block.content
-            .map(value =>
-              value && typeof value === "object" && typeof (value as Record<string, unknown>).text === "string"
-                ? String((value as Record<string, unknown>).text)
-                : typeof value === "string"
-                  ? value
-                  : "",
-            )
-            .join("\n");
-        }
-
-        return "";
-      })
-      .filter(Boolean)
-      .join("\n")
-      .trim();
-
-    if (thinkingBlocks) {
-      return thinkingBlocks;
-    }
-  }
-
   return undefined;
+}
+
+function isTinCanReplyName(name: unknown): boolean {
+  return name === "tincan_reply" || name === "mcp__tin-can__tincan_reply";
 }
 
 function isTinCanReplyCall(record: Record<string, unknown>): boolean {
   return (
-    record.name === "tincan_reply" ||
-    record.name === "mcp__tin-can__tincan_reply" ||
-    record.tool_name === "tincan_reply" ||
-    record.tool_name === "mcp__tin-can__tincan_reply" ||
-    record.tool === "tincan_reply" ||
-    record.tool === "mcp__tin-can__tincan_reply"
+    isTinCanReplyName(record.name) ||
+    isTinCanReplyName(record.tool_name) ||
+    isTinCanReplyName(record.tool)
   );
 }
 
