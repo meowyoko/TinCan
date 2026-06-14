@@ -148,11 +148,19 @@ function isUserTurnBoundary(node: unknown): boolean {
   }
 
   const message = record.message;
-  return (
-    !!message &&
-    typeof message === "object" &&
-    (message as Record<string, unknown>).role === "user"
+  if (!message || typeof message !== "object" || (message as Record<string, unknown>).role !== "user") {
+    return false;
+  }
+
+  const content = (message as Record<string, unknown>).content;
+  if (!Array.isArray(content)) {
+    return false;
+  }
+
+  const hasOnlyToolResults = content.every(
+    item => item && typeof item === "object" && (item as Record<string, unknown>).type === "tool_result",
   );
+  return !hasOnlyToolResults;
 }
 
 function containsTurnContent(node: unknown): boolean {
@@ -214,6 +222,10 @@ function visitNode(node: unknown, state: TranscriptExtraction & { lastSentId?: s
 }
 
 function extractThinkingText(record: Record<string, unknown>): string | undefined {
+  if (record.type === "thinking" && typeof record.thinking === "string" && (record.thinking as string).trim()) {
+    return (record.thinking as string).trim();
+  }
+
   if (record.type === "thinking" && typeof record.text === "string" && record.text.trim()) {
     return record.text.trim();
   }
@@ -246,6 +258,10 @@ function extractThinkingText(record: Record<string, unknown>): string | undefine
         const block = item as Record<string, unknown>;
         if (block.type !== "thinking") {
           return "";
+        }
+
+        if (typeof block.thinking === "string") {
+          return block.thinking as string;
         }
 
         if (typeof block.text === "string") {

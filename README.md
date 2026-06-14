@@ -113,6 +113,7 @@ Keep the PIN local while testing. Do not commit a real PIN.
 
 ## Contributors
 
+- **Ciel** - Hub debugging, thinking pipeline fixes, and VPS-side integration.
 - **Gio** - App/Hub implementation, debugging, and integration support.
 - **凛** - Project owner, product direction, testing, and iteration planning.
 
