@@ -6,6 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
+    "postinstall": "node ./tools/patch-sqlite-gradle.mjs",
     "start": "react-native start",
     "test": "jest"
   },
@@ -13,8 +14,6 @@
     "@react-native/new-app-screen": "0.86.0",
     "react": "19.2.3",
     "react-native": "0.86.0",
-    "react-native-document-picker": "^9.3.1",
-    "react-native-fs": "^2.20.0",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-sqlite-storage": "^6.0.1"
   },

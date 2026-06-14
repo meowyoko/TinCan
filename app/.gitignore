@@ -66,6 +66,9 @@ yarn-error.log
 # testing
 /coverage
 
+# Local Tin-Can app config
+src/services/tincanConfig.local.ts
+
 # Yarn
 .yarn/*
 !.yarn/patches

@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
@@ -68,6 +69,11 @@ const DEFAULT_ATTACHMENT_EXT: Record<AttachmentPayload["attachment_type"], strin
 };
 
 const httpServer = createServer((req, res) => {
+  if (req.url?.startsWith("/attachments/by-path/")) {
+    void serveAttachmentByPath(req.url, res);
+    return;
+  }
+
   if (req.url === "/health") {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true, ...getReadyState(), clients: clients.size, queue: queue.length }));
@@ -660,6 +666,88 @@ httpServer.listen(config.clientPort, "0.0.0.0", () => {
 });
 
 const PRIMARY_CHAT_ID = "main";
+
+async function serveAttachmentByPath(urlPath: string, res: import("node:http").ServerResponse): Promise<void> {
+  const requestUrl = new URL(urlPath, "http://tin-can.local");
+  if (config.pin && requestUrl.searchParams.get("pin") !== config.pin) {
+    res.writeHead(401);
+    res.end("unauthorized");
+    return;
+  }
+
+  const filePath = decodeAttachmentPath(requestUrl.pathname);
+  if (!filePath) {
+    res.writeHead(400);
+    res.end("invalid attachment path");
+    return;
+  }
+
+  try {
+    const stream = createReadStream(filePath);
+    stream.on("error", () => {
+      res.writeHead(404);
+      res.end("attachment not found");
+    });
+
+    res.writeHead(200, {
+      "content-type": contentTypeForPath(filePath),
+      "cache-control": "no-store",
+    });
+    stream.pipe(res);
+  } catch {
+    res.writeHead(404);
+    res.end("attachment not found");
+  }
+}
+
+function decodeAttachmentPath(urlPath: string): string | null {
+  const prefix = "/attachments/by-path/";
+  if (!urlPath.startsWith(prefix)) {
+    return null;
+  }
+
+  const rest = urlPath.slice(prefix.length);
+  const slashIndex = rest.indexOf("/");
+  const encodedPath = slashIndex >= 0 ? rest.slice(0, slashIndex) : rest;
+  if (!encodedPath) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return null;
+  }
+}
+
+function contentTypeForPath(filePath: string): string {
+  const extension = extname(filePath).toLowerCase();
+
+  switch (extension) {
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    case ".bmp":
+      return "image/bmp";
+    case ".pdf":
+      return "application/pdf";
+    case ".txt":
+    case ".md":
+      return "text/plain; charset=utf-8";
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".json":
+      return "application/json; charset=utf-8";
+    default:
+      return "application/octet-stream";
+  }
+}
 
 async function materializeAttachment(
   attachment: UploadAttachmentPayload,

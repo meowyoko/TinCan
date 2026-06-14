@@ -1,11 +1,15 @@
 import React, {useMemo, useState} from 'react';
 import {
   Image,
+  Linking,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import {MarkdownText} from './MarkdownText';
+import {tinCanConfig} from '../services/tincanConfig';
 import {colors, radii, typography} from '../theme/colors';
 import type {ChatAttachmentMessage} from '../types/chat';
 
@@ -15,19 +19,49 @@ type AttachmentMessageCardProps = {
   onLongPress?: () => void;
 };
 
+const IMAGE_BG = colors.thinkingBg;
+const IMAGE_BLEED = 2;
+
 export function AttachmentMessageCard({
   message,
   showSender,
   onLongPress,
 }: AttachmentMessageCardProps): React.JSX.Element {
   const [thinkingOpen, setThinkingOpen] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
   const isUser = message.role === 'user';
   const senderName = isUser ? '凛' : 'Ciel';
   const previewUri = useMemo(
-    () => resolvePreviewUri(message.attachment.uri, message.attachment.localPath),
-    [message.attachment.localPath, message.attachment.uri],
+    () =>
+      resolvePreviewUri(
+        message.role,
+        message.attachment.uri,
+        message.attachment.localPath,
+        message.attachment.fileName,
+      ),
+    [
+      message.attachment.fileName,
+      message.attachment.localPath,
+      message.attachment.uri,
+      message.role,
+    ],
   );
   const canShowThinking = !isUser && Boolean(message.thinking?.text);
+  const showCaptionBubble =
+    message.attachment.attachmentType === 'image' && Boolean(message.caption);
+
+  function handleAttachmentPress(): void {
+    if (message.attachment.attachmentType === 'image') {
+      if (previewUri) {
+        setImageOpen(true);
+      }
+      return;
+    }
+
+    if (previewUri) {
+      Linking.openURL(previewUri).catch(() => undefined);
+    }
+  }
 
   return (
     <View style={[styles.wrap, isUser && styles.userWrap]}>
@@ -53,7 +87,7 @@ export function AttachmentMessageCard({
         </View>
       ) : null}
 
-      <Pressable onLongPress={onLongPress}>
+      <Pressable onLongPress={onLongPress} onPress={handleAttachmentPress}>
         {message.attachment.attachmentType === 'voice' ? (
           <View
             style={[
@@ -77,28 +111,84 @@ export function AttachmentMessageCard({
           </View>
         ) : message.attachment.attachmentType === 'image' ? (
           <View style={styles.imageCard}>
-            {previewUri ? (
-              <Image source={{uri: previewUri}} style={styles.imagePreview} />
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <Text style={styles.imagePlaceholderText}>图像预览</Text>
-              </View>
-            )}
-            <Text style={styles.imageLabel}>
-              {message.caption ?? message.attachment.fileName}
-            </Text>
+            <View
+              renderToHardwareTextureAndroid
+              shouldRasterizeIOS
+              style={styles.imageClipper}>
+              {previewUri ? (
+                <Image
+                  source={{uri: previewUri}}
+                  resizeMode="cover"
+                  style={styles.imagePreview}
+                />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Text style={styles.imagePlaceholderText}>图片预览</Text>
+                </View>
+              )}
+            </View>
+            <View pointerEvents="none" style={styles.imageBorderOverlay} />
           </View>
         ) : (
           <View style={styles.fileCard}>
-            <Text style={styles.fileLabel}>
-              附件：{message.attachment.fileName}
-            </Text>
-            {message.caption ? (
-              <Text style={styles.fileCaption}>{message.caption}</Text>
-            ) : null}
+            <View style={styles.fileIcon}>
+              <Text style={styles.fileIconText}>#</Text>
+            </View>
+            <View style={styles.fileMeta}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={styles.fileLabel}>
+                {message.attachment.fileName}
+              </Text>
+              {message.caption ? (
+                <Text
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                  style={styles.fileCaption}>
+                  {message.caption}
+                </Text>
+              ) : null}
+            </View>
           </View>
         )}
       </Pressable>
+
+      {showCaptionBubble && message.caption ? (
+        <Pressable onLongPress={onLongPress}>
+          <View
+            style={[
+              styles.captionBubble,
+              isUser ? styles.userCaptionBubble : styles.aiCaptionBubble,
+            ]}>
+            <MarkdownText
+              content={message.caption}
+              tone="light"
+              compact
+              tailPlaceholderChars={8}
+            />
+            <Text style={styles.captionTime}>{message.time}</Text>
+          </View>
+        </Pressable>
+      ) : null}
+
+      {message.attachment.attachmentType === 'image' && previewUri ? (
+        <Modal
+          animationType="fade"
+          transparent
+          visible={imageOpen}
+          onRequestClose={() => setImageOpen(false)}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setImageOpen(false)}>
+            <Image
+              source={{uri: previewUri}}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
+          </Pressable>
+        </Modal>
+      ) : null}
     </View>
   );
 }
@@ -106,15 +196,21 @@ export function AttachmentMessageCard({
 const WAVE_SIZES = [4, 8, 12, 6, 14, 10, 5, 9, 13, 7, 11, 5];
 
 function resolvePreviewUri(
+  role: ChatAttachmentMessage['role'],
   uri: string | undefined,
   localPath: string | undefined,
+  fileName: string,
 ): string | undefined {
   if (uri) {
-    return uri;
+    return normalizeAttachmentUri(uri);
   }
 
   if (!localPath) {
     return undefined;
+  }
+
+  if (role === 'assistant') {
+    return buildHubAttachmentUrl(localPath, fileName);
   }
 
   if (/^[a-z]+:\/\//i.test(localPath)) {
@@ -122,6 +218,44 @@ function resolvePreviewUri(
   }
 
   return `file://${localPath}`;
+}
+
+function normalizeAttachmentUri(uri: string): string {
+  if (
+    /^https?:\/\//i.test(uri) ||
+    /^file:\/\//i.test(uri) ||
+    /^content:\/\//i.test(uri)
+  ) {
+    return uri;
+  }
+
+  if (uri.startsWith('/')) {
+    return withHubPin(`${hubHttpOrigin()}${uri}`);
+  }
+
+  return uri;
+}
+
+function buildHubAttachmentUrl(filePath: string, fileName: string): string {
+  const encodedPath = encodeURIComponent(filePath);
+  return withHubPin(
+    `${hubHttpOrigin()}/attachments/by-path/${encodedPath}/${encodeURIComponent(
+      fileName,
+    )}`,
+  );
+}
+
+function hubHttpOrigin(): string {
+  return tinCanConfig.hubUrl.replace(/^ws/i, 'http').replace(/\/$/, '');
+}
+
+function withHubPin(url: string): string {
+  if (!tinCanConfig.pin) {
+    return url;
+  }
+
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}pin=${encodeURIComponent(tinCanConfig.pin)}`;
 }
 
 function formatDuration(durationMs: number | undefined): string {
@@ -244,22 +378,31 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   imageCard: {
-    width: 210,
+    width: 214,
+    height: 134,
+    position: 'relative',
     borderRadius: radii.md,
-    borderWidth: 1.2,
-    borderColor: colors.ink,
-    backgroundColor: colors.thinkingBg,
     overflow: 'hidden',
     transform: [{rotate: '-2deg'}],
   },
-  imagePreview: {
+  imageClipper: {
     width: '100%',
-    height: 112,
+    height: '100%',
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    backgroundColor: IMAGE_BG,
+  },
+  imagePreview: {
+    position: 'absolute',
+    left: -IMAGE_BLEED,
+    top: -IMAGE_BLEED,
+    right: -IMAGE_BLEED,
+    bottom: -IMAGE_BLEED,
     backgroundColor: '#d8d3c8',
   },
   imagePlaceholder: {
     width: '100%',
-    height: 112,
+    height: '100%',
     backgroundColor: '#d8d3c8',
     alignItems: 'center',
     justifyContent: 'center',
@@ -270,24 +413,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  imageLabel: {
-    color: colors.inkSoft,
-    fontFamily: typography.serif,
-    fontSize: 12,
-    lineHeight: 18,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    textAlign: 'center',
+  imageBorderOverlay: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: radii.md,
+    borderWidth: 1.2,
+    borderColor: colors.ink,
   },
   fileCard: {
-    maxWidth: '82%',
-    borderRadius: radii.sm,
+    width: 214,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: radii.md,
     borderWidth: 1.2,
     borderColor: colors.ink,
     backgroundColor: colors.thinkingBg,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     transform: [{rotate: '-2deg'}],
+  },
+  fileIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(42, 35, 32, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileIconText: {
+    color: colors.inkSoft,
+    fontFamily: typography.serifSemiBold,
+    fontSize: 11,
+    lineHeight: 12,
+  },
+  fileMeta: {
+    flex: 1,
+    minWidth: 0,
   },
   fileLabel: {
     color: colors.ink,
@@ -296,10 +457,49 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   fileCaption: {
-    marginTop: 4,
+    marginTop: 3,
     color: colors.inkSoft,
     fontFamily: typography.serif,
     fontSize: 11,
     lineHeight: 16,
+  },
+  captionBubble: {
+    position: 'relative',
+    maxWidth: '86%',
+    minWidth: '38%',
+    marginTop: 6,
+    borderRadius: radii.md,
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 5,
+    paddingBottom: 6,
+  },
+  aiCaptionBubble: {
+    backgroundColor: colors.blueMain,
+    borderTopLeftRadius: 3,
+  },
+  userCaptionBubble: {
+    backgroundColor: colors.terracotta,
+    borderTopRightRadius: 3,
+  },
+  captionTime: {
+    position: 'absolute',
+    right: 8,
+    bottom: 5,
+    color: 'rgba(255, 250, 242, 0.74)',
+    fontSize: 10,
+    lineHeight: 12,
+    fontFamily: typography.serif,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(22, 18, 16, 0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '82%',
   },
 });

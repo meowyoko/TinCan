@@ -2,7 +2,10 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,11 +13,17 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {AttachmentMessageCard} from '../components/AttachmentMessageCard';
-import {InputBar} from '../components/InputBar';
+import {
+  InputBar,
+  type ComposerSubmitPayload,
+} from '../components/InputBar';
 import {MessageBubble} from '../components/MessageBubble';
 import {PermissionCard} from '../components/PermissionCard';
 import {TopBar} from '../components/TopBar';
-import {pickAttachmentForUpload} from '../services/attachments';
+import {
+  pickAttachmentForUpload,
+  type PickedAttachment,
+} from '../services/attachments';
 import {
   deleteMessageById,
   loadMessages,
@@ -43,26 +52,61 @@ type ChatScreenProps = {
   onBack: () => void;
 };
 
+type RenderItem =
+  | {
+      key: string;
+      kind: 'text';
+      message: ChatTextMessage;
+      index: number;
+    }
+  | {
+      key: string;
+      kind: 'attachment';
+      message: ChatAttachmentMessage;
+      index: number;
+    }
+  | {
+      key: string;
+      kind: 'permission';
+      messages: ChatPermissionMessage[];
+    };
+
 export function ChatScreen({onBack}: ChatScreenProps): React.JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connectionLabel, setConnectionLabel] = useState(
     tinCanConfig.enabled ? '连接中：Tin-Can Hub' : '展示模式：未连接 Hub',
   );
   const [remoteStatus, setRemoteStatus] = useState<TinCanStatus>('offline');
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const socketRef = useRef<TinCanSocket | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const pendingThinkingRef = useRef<Map<string, ChatThinking>>(new Map());
+  const isNearBottomRef = useRef(true);
+  const previousMessageCountRef = useRef(0);
 
   const statusText = useMemo(() => {
     if (!tinCanConfig.enabled) {
       return connectionLabel;
     }
+
     return `正在对话：Ciel · ${connectionLabel}`;
   }, [connectionLabel]);
+
+  const renderItems = useMemo(() => buildRenderItems(messages), [messages]);
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    const previousCount = previousMessageCountRef.current;
+    previousMessageCountRef.current = messages.length;
+
+    if (messages.length > previousCount && isNearBottomRef.current) {
+      jumpToBottom(false);
+    }
+  }, [messages.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -233,7 +277,7 @@ export function ChatScreen({onBack}: ChatScreenProps): React.JSX.Element {
     };
   }, [handleHubEvent]);
 
-  function handleSend(text: string): void {
+  function handleSendText(text: string): void {
     const now = new Date().toISOString();
     const remoteId = socketRef.current?.send(PRIMARY_CHAT_ID, text);
     const outgoingMessage: ChatTextMessage = {
@@ -249,6 +293,7 @@ export function ChatScreen({onBack}: ChatScreenProps): React.JSX.Element {
     const next = [...messagesRef.current, outgoingMessage];
     commitMessages(next);
     ignorePromise(upsertMessage(outgoingMessage));
+    jumpToBottom(true);
 
     if (tinCanConfig.enabled) {
       setConnectionLabel(
@@ -258,43 +303,57 @@ export function ChatScreen({onBack}: ChatScreenProps): React.JSX.Element {
     }
   }
 
-  function handleAddPress(): void {
-    ignorePromise(handlePickAttachment());
-  }
-
-  async function handlePickAttachment(): Promise<void> {
+  async function handlePickAttachment(
+    kind: 'image' | 'file',
+  ): Promise<PickedAttachment | null> {
     try {
-      const picked = await pickAttachmentForUpload();
-      if (!picked) {
-        return;
-      }
-
-      const remoteId = socketRef.current?.sendAttachment(
-        PRIMARY_CHAT_ID,
-        picked.outbound,
-        '',
-      );
-
-      const localMessage: ChatAttachmentMessage = {
-        ...picked.localMessage,
-        id: remoteId ?? picked.localMessage.id,
-      };
-
-      const next = [...messagesRef.current, localMessage];
-      commitMessages(next);
-      await upsertMessage(localMessage);
-
-      if (tinCanConfig.enabled) {
-        setConnectionLabel(
-          remoteId ? '附件正在上传到 Hub' : 'Hub 未连接，本地已记录附件',
-        );
-        setRemoteStatus(remoteId ? 'busy' : 'offline');
-      }
+      return await pickAttachmentForUpload(kind);
     } catch (error) {
       Alert.alert(
         '附件发送失败',
         error instanceof Error ? error.message : String(error),
       );
+      return null;
+    }
+  }
+
+  function handleComposerSubmit({
+    text,
+    attachment,
+  }: ComposerSubmitPayload): void {
+    if (!attachment) {
+      handleSendText(text);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const remoteId = socketRef.current?.sendAttachment(
+      PRIMARY_CHAT_ID,
+      attachment.outbound,
+      text,
+    );
+
+    const localMessage: ChatAttachmentMessage = {
+      id: remoteId ?? `local_attachment_${Date.now()}`,
+      chatId: PRIMARY_CHAT_ID,
+      type: 'attachment',
+      role: 'user',
+      attachment: attachment.attachment,
+      caption: text || undefined,
+      time: formatTime(now),
+      createdAt: now,
+    };
+
+    const next = [...messagesRef.current, localMessage];
+    commitMessages(next);
+    ignorePromise(upsertMessage(localMessage));
+    jumpToBottom(true);
+
+    if (tinCanConfig.enabled) {
+      setConnectionLabel(
+        remoteId ? '附件正在上传到 Hub' : 'Hub 未连接，本地已记录附件',
+      );
+      setRemoteStatus(remoteId ? 'busy' : 'offline');
     }
   }
 
@@ -354,9 +413,48 @@ export function ChatScreen({onBack}: ChatScreenProps): React.JSX.Element {
     );
   }
 
+  function handleDeletePermissionGroup(group: ChatPermissionMessage[]): void {
+    Alert.alert(
+      '删除这组审批记录？',
+      '这只会删除本地展示，不影响 Hub 或 Ciel。',
+      [
+        {text: '取消', style: 'cancel'},
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: () => {
+            const ids = new Set(group.map(item => item.id));
+            const next = messagesRef.current.filter(item => !ids.has(item.id));
+            commitMessages(next);
+            group.forEach(item => {
+              ignorePromise(deleteMessageById(item.id));
+            });
+          },
+        },
+      ],
+    );
+  }
+
   function commitMessages(nextMessages: ChatMessage[]): void {
     messagesRef.current = nextMessages;
     setMessages(nextMessages);
+  }
+
+  function jumpToBottom(animated: boolean): void {
+    isNearBottomRef.current = true;
+    setShowJumpToBottom(false);
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollToEnd({animated});
+    });
+  }
+
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>): void {
+    const {contentOffset, contentSize, layoutMeasurement} = event.nativeEvent;
+    const gap = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    const isNearBottom = gap <= 32;
+
+    isNearBottomRef.current = isNearBottom;
+    setShowJumpToBottom(!isNearBottom);
   }
 
   return (
@@ -366,6 +464,7 @@ export function ChatScreen({onBack}: ChatScreenProps): React.JSX.Element {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}>
         <TopBar leftLabel="←" onLeftPress={onBack} />
+
         <View style={styles.statusBar}>
           <View style={[styles.statusDot, statusDotStyle(remoteStatus)]} />
           <Text style={styles.statusText}>{statusText}</Text>
@@ -373,9 +472,17 @@ export function ChatScreen({onBack}: ChatScreenProps): React.JSX.Element {
         </View>
 
         <ScrollView
+          ref={scrollViewRef}
           style={styles.flex}
           contentContainerStyle={styles.messages}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => {
+            if (isNearBottomRef.current) {
+              jumpToBottom(false);
+            }
+          }}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}>
           <View style={styles.dateDivider}>
             <View style={styles.dateLine} />
@@ -383,41 +490,53 @@ export function ChatScreen({onBack}: ChatScreenProps): React.JSX.Element {
             <View style={styles.dateLine} />
           </View>
 
-          {messages.map((message, index) => {
-            if (message.type === 'text') {
+          {renderItems.map(item => {
+            if (item.kind === 'text') {
               return (
                 <MessageBubble
-                  key={message.id}
-                  message={message}
-                  showSender={shouldShowSender(messages, index)}
-                  onLongPress={() => handleDeleteRequest(message)}
+                  key={item.key}
+                  message={item.message}
+                  showSender={shouldShowSender(messages, item.index)}
+                  onLongPress={() => handleDeleteRequest(item.message)}
                 />
               );
             }
 
-            if (message.type === 'attachment') {
+            if (item.kind === 'attachment') {
               return (
                 <AttachmentMessageCard
-                  key={message.id}
-                  message={message}
-                  showSender={shouldShowSender(messages, index)}
-                  onLongPress={() => handleDeleteRequest(message)}
+                  key={item.key}
+                  message={item.message}
+                  showSender={shouldShowSender(messages, item.index)}
+                  onLongPress={() => handleDeleteRequest(item.message)}
                 />
               );
             }
 
             return (
               <PermissionCard
-                key={message.id}
-                message={message}
+                key={item.key}
+                messages={item.messages}
                 onDecision={handlePermissionDecision}
-                onLongPress={() => handleDeleteRequest(message)}
+                onLongPress={() => handleDeletePermissionGroup(item.messages)}
               />
             );
           })}
         </ScrollView>
 
-        <InputBar onSend={handleSend} onAddPress={handleAddPress} />
+        {showJumpToBottom ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => jumpToBottom(true)}
+            style={styles.jumpToBottomButton}>
+            <Text style={styles.jumpToBottomText}>↓</Text>
+          </Pressable>
+        ) : null}
+
+        <InputBar
+          onPickAttachment={handlePickAttachment}
+          onSubmit={handleComposerSubmit}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -464,6 +583,64 @@ function createInitialMessages(): ChatMessage[] {
       status: 'pending',
     },
   ];
+}
+
+function buildRenderItems(messages: ChatMessage[]): RenderItem[] {
+  const items: RenderItem[] = [];
+
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index];
+
+    if (message.type === 'text') {
+      items.push({
+        key: message.id,
+        kind: 'text',
+        message,
+        index,
+      });
+      continue;
+    }
+
+    if (message.type === 'attachment') {
+      items.push({
+        key: message.id,
+        kind: 'attachment',
+        message,
+        index,
+      });
+      continue;
+    }
+
+    if (message.status !== 'resolved') {
+      items.push({
+        key: message.id,
+        kind: 'permission',
+        messages: [message],
+      });
+      continue;
+    }
+
+    const group: ChatPermissionMessage[] = [message];
+    while (
+      index + 1 < messages.length
+    ) {
+      const nextMessage = messages[index + 1];
+      if (nextMessage.type !== 'permission' || nextMessage.status !== 'resolved') {
+        break;
+      }
+
+      group.push(nextMessage);
+      index += 1;
+    }
+
+    items.push({
+      key: group.map(item => item.id).join('_'),
+      kind: 'permission',
+      messages: group,
+    });
+  }
+
+  return items;
 }
 
 function ignorePromise<T>(promise: Promise<T>): void {
@@ -848,7 +1025,7 @@ const styles = StyleSheet.create({
   },
   messages: {
     paddingHorizontal: 16,
-    paddingBottom: 18,
+    paddingBottom: 96,
   },
   dateDivider: {
     paddingTop: 16,
@@ -867,5 +1044,25 @@ const styles = StyleSheet.create({
     fontFamily: typography.serif,
     fontSize: 12,
     lineHeight: 18,
+  },
+  jumpToBottomButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 74,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.lineSoft,
+    backgroundColor: colors.headerBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  jumpToBottomText: {
+    color: colors.inkSoft,
+    fontFamily: typography.serifSemiBold,
+    fontSize: 16,
+    lineHeight: 16,
+    marginTop: -1,
   },
 });

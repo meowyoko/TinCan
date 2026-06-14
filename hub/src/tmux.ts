@@ -13,6 +13,7 @@ export async function hasTmuxSession(session: string): Promise<boolean> {
 }
 
 export async function sendToTmux(session: string, text: string, timeoutMs: number): Promise<void> {
+  await execFileAsync("tmux", ["send-keys", "-t", `${session}:0`, "Escape"], { timeout: timeoutMs });
   await execFileAsync("tmux", ["send-keys", "-t", `${session}:0`, "-l", text], { timeout: timeoutMs });
   await execFileAsync("tmux", ["send-keys", "-t", `${session}:0`, "Enter"], { timeout: timeoutMs });
 }

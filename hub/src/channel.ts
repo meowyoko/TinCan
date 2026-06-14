@@ -21,6 +21,9 @@ export function formatChannelMessage(envelope: InboundEnvelope): string {
     ? [
         `attachment_type="${escapeAttr(envelope.attachment.attachment_type)}"`,
         `file_name="${escapeAttr(envelope.attachment.file_name)}"`,
+        envelope.attachment.attachment_type === "image" && envelope.attachment.file_path
+          ? `image_path="${escapeAttr(envelope.attachment.file_path)}"`
+          : null,
         envelope.attachment.file_path
           ? `file_path="${escapeAttr(envelope.attachment.file_path)}"`
           : null,
