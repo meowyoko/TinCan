@@ -2,15 +2,6 @@ import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {colors, radii, typography} from '../theme/colors';
 
-export function ThinkingIndicator(): React.JSX.Element {
-  return (
-    <View style={styles.thinking}>
-      <Text style={styles.thinkingText}>思考中…… 正在整理电讯脉络</Text>
-      <Text style={styles.dots}>● ● ●</Text>
-    </View>
-  );
-}
-
 export function ToolCallCard(): React.JSX.Element {
   return (
     <View style={styles.tool}>
@@ -23,7 +14,9 @@ export function MemoryCard(): React.JSX.Element {
   return (
     <View style={styles.memory}>
       <Text style={styles.memoryTitle}>记忆召回</Text>
-      <Text style={styles.memoryBody}>凛提到一期只需要正文气泡真实接入，其它卡片先做展示。</Text>
+      <Text style={styles.memoryBody}>
+        凛提到一期只需要正文气泡真实接入，其它卡片可以先做展示。
+      </Text>
     </View>
   );
 }
@@ -46,34 +39,6 @@ export function SketchCard(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  thinking: {
-    marginLeft: 38,
-    marginBottom: 12,
-    minWidth: '60%',
-    maxWidth: '76%',
-    borderRadius: radii.md,
-    borderWidth: 1.4,
-    borderStyle: 'dashed',
-    borderColor: '#c5b29e',
-    backgroundColor: colors.thinkingBg,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  thinkingText: {
-    flex: 1,
-    color: colors.inkSoft,
-    fontFamily: typography.serif,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  dots: {
-    color: colors.terracotta,
-    fontSize: 8,
-    letterSpacing: 2,
-  },
   tool: {
     alignSelf: 'flex-start',
     marginLeft: 38,

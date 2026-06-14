@@ -4,9 +4,13 @@ import {colors, typography} from '../theme/colors';
 
 type InputBarProps = {
   onSend: (text: string) => void;
+  onAddPress?: () => void;
 };
 
-export function InputBar({onSend}: InputBarProps): React.JSX.Element {
+export function InputBar({
+  onSend,
+  onAddPress,
+}: InputBarProps): React.JSX.Element {
   const [value, setValue] = useState('');
 
   function submit(): void {
@@ -18,7 +22,10 @@ export function InputBar({onSend}: InputBarProps): React.JSX.Element {
 
   return (
     <View style={styles.bar}>
-      <Pressable accessibilityRole="button" style={styles.roundButton}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onAddPress}
+        style={styles.roundButton}>
         <Text style={styles.add}>+</Text>
       </Pressable>
       <TextInput
@@ -35,7 +42,7 @@ export function InputBar({onSend}: InputBarProps): React.JSX.Element {
         accessibilityRole="button"
         onPress={submit}
         style={styles.sendButton}>
-        <Text style={styles.send}>›</Text>
+        <Text style={styles.send}>↗</Text>
       </Pressable>
     </View>
   );
@@ -108,8 +115,8 @@ const styles = StyleSheet.create({
   },
   send: {
     color: colors.white,
-    fontSize: 30,
-    lineHeight: 30,
-    marginTop: -1,
+    fontSize: 24,
+    lineHeight: 24,
+    marginTop: -2,
   },
 });

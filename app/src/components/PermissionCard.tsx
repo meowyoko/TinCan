@@ -9,11 +9,13 @@ import {colors, radii, typography} from '../theme/colors';
 type PermissionCardProps = {
   message: ChatPermissionMessage;
   onDecision?: (id: string, decision: PermissionDecision) => void;
+  onLongPress?: () => void;
 };
 
 export function PermissionCard({
   message,
   onDecision,
+  onLongPress,
 }: PermissionCardProps): React.JSX.Element {
   const [expanded, setExpanded] = useState(false);
   const isResolved = message.status === 'resolved';
@@ -25,6 +27,7 @@ export function PermissionCard({
       accessibilityRole="button"
       accessibilityState={{expanded}}
       disabled={!hasDetail}
+      onLongPress={onLongPress}
       onPress={() => setExpanded(current => !current)}
       style={[
         styles.card,
@@ -71,7 +74,7 @@ export function PermissionCard({
                 styles.denyButton,
                 isSubmitting && styles.actionButtonDisabled,
               ]}>
-              <Text style={styles.denyText}>✕</Text>
+              <Text style={styles.denyText}>✗</Text>
             </Pressable>
           </View>
         )}
@@ -97,11 +100,11 @@ export function PermissionCard({
 
 function resolvedGlyph(message: ChatPermissionMessage): string {
   if (message.decision === 'deny') {
-    return '✕';
+    return '✗';
   }
 
   if (message.decision === 'external') {
-    return '•';
+    return '·';
   }
 
   return '✓';

@@ -1,5 +1,5 @@
-import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import React, {useState} from 'react';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {MarkdownText} from './MarkdownText';
 import {colors, radii, typography} from '../theme/colors';
 import type {ChatTextMessage} from '../types/chat';
@@ -7,31 +7,54 @@ import type {ChatTextMessage} from '../types/chat';
 type MessageBubbleProps = {
   message: ChatTextMessage;
   showSender: boolean;
+  onLongPress?: () => void;
 };
 
 export function MessageBubble({
   message,
   showSender,
+  onLongPress,
 }: MessageBubbleProps): React.JSX.Element {
+  const [thinkingOpen, setThinkingOpen] = useState(false);
   const isUser = message.role === 'user';
   const senderName = isUser ? '凛' : 'Ciel';
+  const canShowThinking = !isUser && Boolean(message.thinking?.text);
 
   return (
     <View style={[styles.wrap, isUser && styles.userWrap]}>
       {showSender ? (
-        <Text style={[styles.sender, isUser && styles.userSender]}>
-          {senderName}
-        </Text>
+        <View style={[styles.senderLine, isUser && styles.userSenderLine]}>
+          <Text style={[styles.sender, isUser && styles.userSender]}>
+            {senderName}
+          </Text>
+          {canShowThinking ? (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={6}
+              onPress={() => setThinkingOpen(current => !current)}>
+              <Text style={styles.thinkingTag}>在想…</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
-      <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
-        <MarkdownText
-          content={message.text}
-          tone="light"
-          compact
-          tailPlaceholderChars={8}
-        />
-        <Text style={styles.time}>{message.time}</Text>
-      </View>
+
+      {thinkingOpen && message.thinking ? (
+        <View style={styles.thinkingBlock}>
+          <Text style={styles.thinkingText}>{message.thinking.text}</Text>
+        </View>
+      ) : null}
+
+      <Pressable onLongPress={onLongPress}>
+        <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
+          <MarkdownText
+            content={message.text}
+            tone="light"
+            compact
+            tailPlaceholderChars={8}
+          />
+          <Text style={styles.time}>{message.time}</Text>
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -44,16 +67,47 @@ const styles = StyleSheet.create({
   userWrap: {
     alignItems: 'flex-end',
   },
+  senderLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginBottom: 4,
+    paddingHorizontal: 2,
+  },
+  userSenderLine: {
+    justifyContent: 'flex-end',
+  },
   sender: {
     color: colors.inkSoft,
     fontFamily: typography.serif,
     fontSize: 11,
     lineHeight: 15,
-    marginBottom: 3,
-    paddingHorizontal: 2,
   },
   userSender: {
     textAlign: 'right',
+  },
+  thinkingTag: {
+    color: '#c5b29e',
+    fontFamily: typography.serif,
+    fontSize: 10,
+    lineHeight: 14,
+    fontStyle: 'italic',
+    letterSpacing: 0.3,
+  },
+  thinkingBlock: {
+    marginBottom: 6,
+    marginLeft: 2,
+    paddingLeft: 10,
+    borderLeftWidth: 1.5,
+    borderLeftColor: '#c5b29e',
+    maxWidth: '84%',
+  },
+  thinkingText: {
+    color: colors.inkSoft,
+    fontFamily: typography.serif,
+    fontSize: 12,
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
   bubble: {
     position: 'relative',

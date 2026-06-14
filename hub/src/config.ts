@@ -4,6 +4,7 @@ export type HubConfig = {
   pin: string;
   tmuxSession: string;
   channelUser: string;
+  uploadDir: string;
   sendTimeoutMs: number;
   busyTimeoutMs: number;
   approvalPollMs: number;
@@ -24,6 +25,7 @@ export const config: HubConfig = {
   pin: process.env.TINCAN_PIN ?? "",
   tmuxSession: process.env.TINCAN_TMUX ?? "cc",
   channelUser: process.env.TINCAN_USER ?? "rin",
+  uploadDir: process.env.TINCAN_UPLOAD_DIR ?? "/tmp/tin-can-uploads",
   sendTimeoutMs: intFromEnv("TINCAN_SEND_TIMEOUT_MS", 3000),
   busyTimeoutMs: intFromEnv("TINCAN_BUSY_TIMEOUT_MS", 120000),
   approvalPollMs: intFromEnv("TINCAN_APPROVAL_POLL_MS", 800),

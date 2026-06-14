@@ -1,12 +1,50 @@
-export type TinCanStatus = 'idle' | 'thinking' | 'error' | 'offline' | 'busy';
-export type PermissionDecision = 'allow' | 'deny';
-export type PermissionOutcome = PermissionDecision | 'external';
+import type {
+  AttachmentType,
+  PermissionDecision,
+  PermissionOutcome,
+} from '../types/chat';
 
-export type HubReply = {
+export type TinCanStatus = 'idle' | 'thinking' | 'error' | 'offline' | 'busy';
+
+export type HubAttachment = {
+  attachment_type: AttachmentType;
+  file_name: string;
+  file_path?: string;
+  file_uri?: string;
+  mime_type?: string;
+  size_bytes?: number;
+  duration_ms?: number;
+};
+
+export type OutboundAttachment = HubAttachment & {
+  data_base64: string;
+};
+
+type HubReplyBase = {
   type: 'reply';
   id: string;
-  text: string;
+  chat_id: string;
   reply_to?: string;
+  ts: string;
+};
+
+export type HubTextReply = HubReplyBase & {
+  kind?: 'text';
+  text: string;
+};
+
+export type HubAttachmentReply = HubReplyBase & {
+  kind: 'attachment';
+  text?: string;
+  attachment: HubAttachment;
+};
+
+export type HubThinking = {
+  type: 'thinking';
+  id: string;
+  chat_id: string;
+  reply_to: string;
+  text: string;
   ts: string;
 };
 
@@ -33,7 +71,9 @@ export type HubPermissionResolved = {
 };
 
 export type HubEvent =
-  | HubReply
+  | HubTextReply
+  | HubAttachmentReply
+  | HubThinking
   | HubStatus
   | HubPermissionRequest
   | HubPermissionResolved
@@ -85,7 +125,7 @@ export class TinCanSocket {
     };
   }
 
-  send(text: string): string | null {
+  send(chatId: string, text: string): string | null {
     const id = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     if (this.ws?.readyState !== WebSocket.OPEN) {
       return null;
@@ -95,7 +135,31 @@ export class TinCanSocket {
       JSON.stringify({
         type: 'message',
         id,
+        chat_id: chatId,
         text,
+        ts: new Date().toISOString(),
+      }),
+    );
+    return id;
+  }
+
+  sendAttachment(
+    chatId: string,
+    attachment: OutboundAttachment,
+    text = '',
+  ): string | null {
+    const id = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      return null;
+    }
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'message',
+        id,
+        chat_id: chatId,
+        text,
+        attachment,
         ts: new Date().toISOString(),
       }),
     );

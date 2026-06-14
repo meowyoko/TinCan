@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/hub.ts",
     "dev:mcp": "tsx src/mcp-bridge.ts",
+    "thinking:hook": "tsx src/thinking-hook.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/hub.js",
     "start:mcp": "node dist/mcp-bridge.js",

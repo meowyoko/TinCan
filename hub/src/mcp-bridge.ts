@@ -87,6 +87,7 @@ const server = new Server(
     instructions: [
       "Use tincan_reply to reply to messages received from <channel source=\"tin-can\">.",
       "Pass chat_id and reply_to when they are present in the channel tag.",
+      "Use tincan_report_thinking to attach post-response thinking text to a reply.",
       "Before sensitive actions, use tincan_request_permission and wait for the decision."
     ].join("\n")
   }
@@ -102,9 +103,29 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           chat_id: { type: "string" },
           text: { type: "string" },
-          reply_to: { type: "string", description: "optional message_id to thread under" }
+          reply_to: { type: "string", description: "optional message_id to thread under" },
+          attachment_type: { type: "string", enum: ["image", "voice", "file"] },
+          file_path: { type: "string", description: "local file path to send to Tin-Can" },
+          file_name: { type: "string", description: "display name for the attachment" },
+          file_uri: { type: "string", description: "optional remote or file uri for preview" },
+          mime_type: { type: "string" },
+          size_bytes: { type: "number" },
+          duration_ms: { type: "number", description: "voice duration in milliseconds" }
         },
-        required: ["chat_id", "text"]
+        required: ["chat_id"]
+      }
+    },
+    {
+      name: "tincan_report_thinking",
+      description: "Attach thinking text to an existing Tin-Can reply",
+      inputSchema: {
+        type: "object",
+        properties: {
+          chat_id: { type: "string" },
+          reply_to: { type: "string", description: "assistant message id that this thinking belongs to" },
+          text: { type: "string", description: "thinking text to show in the app" }
+        },
+        required: ["chat_id", "reply_to", "text"]
       }
     },
     {
@@ -124,7 +145,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name !== "tincan_reply" && request.params.name !== "tincan_request_permission") {
+  if (
+    request.params.name !== "tincan_reply" &&
+    request.params.name !== "tincan_request_permission" &&
+    request.params.name !== "tincan_report_thinking"
+  ) {
     return {
       content: [{ type: "text", text: `unknown tool: ${request.params.name}` }],
       isError: true
@@ -183,24 +208,83 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
+  if (request.params.name === "tincan_report_thinking") {
+    const chatId = typeof args.chat_id === "string" ? args.chat_id : "";
+    const replyTo = typeof args.reply_to === "string" ? args.reply_to : "";
+    const text = typeof args.text === "string" ? args.text : "";
+
+    if (!chatId || !replyTo || !text) {
+      return {
+        content: [{ type: "text", text: "chat_id, reply_to and text are required" }],
+        isError: true
+      };
+    }
+
+    try {
+      const result = await hubRequest({
+        type: "thinking",
+        chat_id: chatId,
+        reply_to: replyTo,
+        text
+      });
+
+      if (!result.ok) {
+        return {
+          content: [{ type: "text", text: result.error ?? "thinking report failed" }],
+          isError: true
+        };
+      }
+
+      return {
+        content: [{ type: "text", text: `thinking sent (id: ${result.id})` }]
+      };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
+        isError: true
+      };
+    }
+  }
+
   const chatId = typeof args.chat_id === "string" ? args.chat_id : "";
   const text = typeof args.text === "string" ? args.text : "";
   const replyTo = typeof args.reply_to === "string" ? args.reply_to : undefined;
+  const attachmentType = typeof args.attachment_type === "string" ? args.attachment_type : undefined;
+  const filePath = typeof args.file_path === "string" ? args.file_path : undefined;
+  const fileName = typeof args.file_name === "string" ? args.file_name : undefined;
+  const fileUri = typeof args.file_uri === "string" ? args.file_uri : undefined;
+  const mimeType = typeof args.mime_type === "string" ? args.mime_type : undefined;
+  const sizeBytes = typeof args.size_bytes === "number" ? args.size_bytes : undefined;
+  const durationMs = typeof args.duration_ms === "number" ? args.duration_ms : undefined;
 
-  if (!chatId || !text) {
+  if (!chatId || (!text && !filePath)) {
     return {
-      content: [{ type: "text", text: "chat_id and text are required" }],
+      content: [{ type: "text", text: "chat_id plus text or file_path are required" }],
       isError: true
     };
   }
 
   try {
-    const result = await hubRequest({
+    const payload: Record<string, unknown> = {
       type: "reply",
       chat_id: chatId,
       text,
       reply_to: replyTo
-    });
+    };
+
+    if (attachmentType && filePath) {
+      payload.attachment = {
+        attachment_type: attachmentType,
+        file_name: fileName ?? filePath.split(/[\\/]/).pop() ?? "attachment",
+        file_path: filePath,
+        file_uri: fileUri,
+        mime_type: mimeType,
+        size_bytes: sizeBytes,
+        duration_ms: durationMs
+      };
+    }
+
+    const result = await hubRequest(payload);
 
     if (!result.ok) {
       return {

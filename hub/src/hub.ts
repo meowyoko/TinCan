@@ -1,5 +1,7 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { extname, join } from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import {
   parseApprovalSnapshot,
@@ -22,9 +24,11 @@ import type {
   HubToBridge,
   HubToClient,
   InboundEnvelope,
+  AttachmentPayload,
   PermissionDecision,
   PermissionOutcome,
   ReadyState,
+  UploadAttachmentPayload,
 } from "./protocol.js";
 
 type Client = {
@@ -57,6 +61,11 @@ type ActiveApproval = {
 };
 
 const APPROVAL_MISS_GRACE_POLLS = 2;
+const DEFAULT_ATTACHMENT_EXT: Record<AttachmentPayload["attachment_type"], string> = {
+  image: ".bin",
+  voice: ".bin",
+  file: ".bin",
+};
 
 const httpServer = createServer((req, res) => {
   if (req.url === "/health") {
@@ -217,25 +226,18 @@ function applyApprovalSnapshot(snapshot: ApprovalSnapshot): void {
   const nextApproval = approvalFromSnapshot(snapshot);
 
   if (activeApproval) {
-    if (
-      activeApproval.fingerprint === nextApproval.fingerprint ||
-      activeApproval.comparisonKey === nextApproval.comparisonKey
-    ) {
-      activeApproval = {
-        ...activeApproval,
-        fingerprint: nextApproval.fingerprint,
-        comparisonKey: nextApproval.comparisonKey,
-        toolName: nextApproval.toolName,
-        summary: nextApproval.summary,
-        detail: nextApproval.detail,
-        allowIndex: nextApproval.allowIndex,
-        denyIndex: nextApproval.denyIndex,
-        missingPolls: 0,
-      };
-      return;
-    }
-
-    finishActiveApproval(activeApproval.decisionSent === null ? "external" : null, false);
+    activeApproval = {
+      ...activeApproval,
+      fingerprint: nextApproval.fingerprint,
+      comparisonKey: nextApproval.comparisonKey,
+      toolName: nextApproval.toolName,
+      summary: nextApproval.summary,
+      detail: nextApproval.detail,
+      allowIndex: nextApproval.allowIndex,
+      denyIndex: nextApproval.denyIndex,
+      missingPolls: 0,
+    };
+    return;
   }
 
   activeApproval = nextApproval;
@@ -301,7 +303,12 @@ function buildApprovalComparisonKey(
   summary: string | null,
   detail: string,
 ): string {
-  return [toolName, summary ?? "", detail]
+  const stableDetail = detail
+    .split("\n")
+    .map(line => line.trim())
+    .find(Boolean) ?? "";
+
+  return [toolName, summary ?? "", stableDetail]
     .join("\n")
     .toLowerCase()
     .replace(/\s+/g, " ")
@@ -342,16 +349,25 @@ async function drainQueue(): Promise<void> {
   }
 }
 
-function enqueueMessage(client: Client, msg: Extract<ClientToHub, { type: "message" }>): void {
+async function enqueueMessage(
+  client: Client,
+  msg: Extract<ClientToHub, { type: "message" }>,
+): Promise<void> {
   const now = new Date().toISOString();
+  const chatId = msg.chat_id?.trim() || client.id;
+  const attachment = msg.attachment
+    ? await materializeAttachment(msg.attachment, msg.id)
+    : undefined;
+  const fallbackText = attachment ? `[${attachment.attachment_type}] ${attachment.file_name}` : "";
   queue.push({
     clientId: client.id,
     envelope: {
-      chat_id: client.id,
+      chat_id: chatId,
       message_id: msg.id,
       user: config.channelUser,
       ts: msg.ts || now,
-      text: msg.text,
+      text: msg.text || fallbackText,
+      attachment,
     },
   });
 
@@ -483,12 +499,31 @@ clientWss.on("connection", (ws) => {
     }
 
     if (msg.type === "message") {
-      if (!msg.text.trim()) {
+      if (!msg.text.trim() && !msg.attachment) {
         send(client, { type: "error", message: "message text is empty" });
         return;
       }
 
-      enqueueMessage(client, msg);
+      void enqueueMessage(client, msg).catch(error => {
+        send(client, {
+          type: "error",
+          message: `failed to prepare attachment: ${String(error)}`,
+        });
+      });
+      return;
+    }
+
+    if (msg.type === "thinking") {
+      const chatId = msg.chat_id?.trim() || PRIMARY_CHAT_ID;
+      broadcast({
+        type: "thinking",
+        id: msg.id,
+        chat_id: chatId,
+        reply_to: msg.reply_to,
+        text: msg.text,
+        ts: msg.ts || new Date().toISOString(),
+      });
+      send(client, { type: "ack", id: msg.id, queued: false });
       return;
     }
 
@@ -521,12 +556,22 @@ bridgeWss.on("connection", (ws) => {
 
     if (msg.type === "reply") {
       const id = msg.id ?? randomUUID();
-      broadcast({
+      const basePayload = {
         type: "reply",
         id,
-        text: msg.text,
+        chat_id: msg.chat_id,
         reply_to: msg.reply_to,
         ts: new Date().toISOString(),
+      } as const;
+
+      broadcast(msg.attachment ? {
+        ...basePayload,
+        kind: "attachment",
+        text: msg.text,
+        attachment: msg.attachment,
+      } : {
+        ...basePayload,
+        text: msg.text ?? "",
       });
 
       if (msg._req_id && ws.readyState === WebSocket.OPEN) {
@@ -536,6 +581,24 @@ bridgeWss.on("connection", (ws) => {
 
       setBusy(false);
       void drainQueue();
+      return;
+    }
+
+    if (msg.type === "thinking") {
+      const id = msg.id ?? randomUUID();
+      broadcast({
+        type: "thinking",
+        id,
+        chat_id: msg.chat_id,
+        reply_to: msg.reply_to,
+        text: msg.text,
+        ts: msg.ts ?? new Date().toISOString(),
+      });
+
+      if (msg._req_id && ws.readyState === WebSocket.OPEN) {
+        const response: HubBridgeAck = { _req_id: msg._req_id, ok: true, id };
+        ws.send(JSON.stringify(response));
+      }
       return;
     }
 
@@ -595,3 +658,60 @@ httpServer.listen(config.clientPort, "0.0.0.0", () => {
   log(`bridge WebSocket listening on 127.0.0.1:${config.bridgePort}`);
   log(`tmux session: ${config.tmuxSession}`);
 });
+
+const PRIMARY_CHAT_ID = "main";
+
+async function materializeAttachment(
+  attachment: UploadAttachmentPayload,
+  messageId: string,
+): Promise<AttachmentPayload> {
+  if (!attachment.data_base64) {
+    return stripAttachmentData(attachment);
+  }
+
+  await mkdir(config.uploadDir, { recursive: true });
+  const extension = resolveAttachmentExtension(attachment);
+  const storedName = `${Date.now()}-${sanitizeForFilename(messageId)}${extension}`;
+  const storedPath = join(config.uploadDir, storedName);
+
+  await writeFile(storedPath, Buffer.from(attachment.data_base64, "base64"));
+
+  return {
+    attachment_type: attachment.attachment_type,
+    file_name: attachment.file_name,
+    file_path: storedPath,
+    file_uri: attachment.file_uri,
+    mime_type: attachment.mime_type,
+    size_bytes: attachment.size_bytes,
+    duration_ms: attachment.duration_ms,
+  };
+}
+
+function stripAttachmentData(
+  attachment: UploadAttachmentPayload,
+): AttachmentPayload {
+  return {
+    attachment_type: attachment.attachment_type,
+    file_name: attachment.file_name,
+    file_path: attachment.file_path,
+    file_uri: attachment.file_uri,
+    mime_type: attachment.mime_type,
+    size_bytes: attachment.size_bytes,
+    duration_ms: attachment.duration_ms,
+  };
+}
+
+function resolveAttachmentExtension(
+  attachment: UploadAttachmentPayload,
+): string {
+  const fromName = extname(attachment.file_name ?? "").trim();
+  if (fromName) {
+    return fromName;
+  }
+
+  return DEFAULT_ATTACHMENT_EXT[attachment.attachment_type];
+}
+
+function sanitizeForFilename(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "_");
+}

@@ -31,6 +31,7 @@ TINCAN_BRIDGE_PORT=3101
 TINCAN_PIN=1234
 TINCAN_TMUX=cc
 TINCAN_USER=rin
+TINCAN_UPLOAD_DIR=/tmp/tin-can-uploads
 ```
 
 MCP config example for Claude Code:
@@ -48,6 +49,28 @@ MCP config example for Claude Code:
   }
 }
 ```
+
+Stop hook example for Claude Code user settings (`~/.claude/settings.json` on the VPS):
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/deploy/tin-can/hub/scripts/tincan-stop-hook.sh",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The hook reads the current transcript, extracts the latest turn's `thinking` block plus the matching `mcp__tin-can__tincan_reply` call, and pushes that thinking text back to the Hub. Runtime logs go to `~/.claude/tin-can-stop-hook.log`.
 
 ## App
 
@@ -90,5 +113,6 @@ Keep the PIN local while testing. Do not commit a real PIN.
 
 ## Contributors
 
+- **Gio** - App/Hub implementation, debugging, and integration support.
 - **凛** - Project owner, product direction, testing, and iteration planning.
 
