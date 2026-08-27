@@ -1,117 +1,34 @@
 # Tin-Can
 
-Tin-Can is a React Native Android chat client plus a small VPS Hub for talking to an already-running Claude Code instance.
+一个基于 React Native 的移动端 AI Agent 交互客户端，通过 WebSocket 与后端 Hub 服务通信，支持实时对话、多媒体消息、权限审批等功能。
 
-一期目标很小：App 能把消息发到 Hub，Hub 用 `<channel source="tin-can">` 纯文本标签注入 tmux 里的 CC，CC 再通过 MCP 工具 `tincan_reply` 把回复推回 App。
+## 功能
 
-## Project Layout
+- 实时通信 — WebSocket 双向连接，消息即时收发
+- 富文本渲染 — 支持 Markdown（加粗、斜体、行内代码、代码块、可点击链接）
+- 多媒体消息 — 图片与文件的发送和接收，图片内联预览，文件附件卡片
+- 权限审批 — 工具调用审批卡片，支持展开详情、批准/拒绝操作，已处理卡片自动折叠
+- 思维过程展示 — 可展开查看 AI 的推理过程
+- 本地持久化 — SQLite 存储聊天记录，支持离线查看
+- 消息管理 — 连续消息合并显示发送者，行内时间戳，消息删除14:19
 
-```text
-tin-can/
-├── app/      # React Native bare app
-├── hub/      # WebSocket hub + MCP bridge
-└── uiResources/
-```
+## 技术栈
 
-## Hub
+客户端：React Native (bare workflow)
+服务端：Node.js + Express
+通信协议：WebSocket
+本地存储：SQLite
+AI 集成：MCP (Model Context Protocol)
+字体：Noto Serif SC（本地打包）
 
-```powershell
-cd hub
-npm install
-npm run typecheck
-npm run build
-npm run dev
-```
+## 架构
 
-Environment variables:
+App (React Native) ↔ WebSocket ↔ Hub (Node.js) ↔ MCP Bridge ↔ AI Agent
 
-```text
-TINCAN_PORT=3100
-TINCAN_BRIDGE_PORT=3101
-TINCAN_PIN=1234
-TINCAN_TMUX=cc
-TINCAN_USER=rin
-TINCAN_UPLOAD_DIR=/tmp/tin-can-uploads
-```
+App 负责界面渲染、用户输入、媒体上传与权限审批交互
+Hub 是中间层服务，负责连接管理、消息转发与 AI Agent 桥接 
 
-MCP config example for Claude Code:
-
-```json
-{
-  "mcpServers": {
-    "tin-can": {
-      "command": "node",
-      "args": ["/home/deploy/tin-can/hub/dist/mcp-bridge.js"],
-      "env": {
-        "TINCAN_BRIDGE_PORT": "3101"
-      }
-    }
-  }
-}
-```
-
-Stop hook example for Claude Code user settings (`~/.claude/settings.json` on the VPS):
-
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/deploy/tin-can/hub/scripts/tincan-stop-hook.sh",
-            "async": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-The hook reads the current transcript, extracts the latest turn's `thinking` block plus the matching `mcp__tin-can__tincan_reply` call, and pushes that thinking text back to the Hub. Runtime logs go to `~/.claude/tin-can-stop-hook.log`.
-
-## App
-
-```powershell
-cd app
-npm install
-npx tsc --noEmit
-npm run lint
-npm run android
-```
-
-The current app skeleton uses local state for screen navigation. The chat UI is wired to the WebSocket service, but live Hub mode is disabled by default.
-
-To test the live phone-to-Hub path, edit `app/src/services/tincanConfig.ts` before running Metro:
-
-```ts
-export const tinCanConfig = {
-  enabled: true,
-  hubUrl: 'ws://64.188.26.146:3100',
-  pin: 'your-pin',
-};
-```
-
-Keep the PIN local while testing. Do not commit a real PIN.
-
-## Current Verification
-
-- Hub: `npm run typecheck`
-- Hub: `npm run build`
-- App: `npx tsc --noEmit`
-- App: `npm run lint`
-
-## Notes
-
-- `tmux_alive`, `bridge_alive`, `busy`, and `ready` are separated in Hub status.
-- Hub uses a single FIFO queue for tmux injection.
-- Chat text bubbles are the first real dynamic surface.
-- Thinking/tool/memory/attachment/sketch cards are display shells for一期.
-- Noto Serif SC font binaries still need to be added under `app/src/assets/fonts/` before release.
-
-## Contributors
+## 贡献者
 
 - **Ciel** - Hub debugging, thinking pipeline fixes, and VPS-side integration.
 - **Gio** - App/Hub implementation, debugging, and integration support.
